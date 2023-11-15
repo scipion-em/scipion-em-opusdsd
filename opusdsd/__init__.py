@@ -90,7 +90,7 @@ class Plugin(pwem.Plugin):
         # try to get CONDA activation command
         installCmds = [
             cls.getCondaActivationCmd(),
-            f'conda create -y --name {ENV_NAME} --file spec-file &&',
+            f'conda env create -y --name {ENV_NAME} --file environment.yml &&',
             f'conda activate {ENV_NAME} &&',
             f'touch {FLAG}'  # Flag installation finished
         ]

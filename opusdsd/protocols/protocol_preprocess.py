@@ -245,5 +245,5 @@ class OpusDsdProtPreprocess(ProtProcessParticles):
         return self._getInputParticles().hasAlignmentProj()
 
     def _runProgram(self, program, args):
-        self._enterDir(os.path.join(Plugin.getVar(OPUSDSD_HOME), "commands"))
+        self._enterDir(Plugin.getVar(OPUSDSD_HOME))
         self.runJob(Plugin.getProgram(program), ' '.join(args))

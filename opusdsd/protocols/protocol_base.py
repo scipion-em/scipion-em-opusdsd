@@ -183,7 +183,7 @@ class OpusDsdProtBase(ProtProcessParticles):
         ]
 
     def _runProgram(self, program, args):
-        self._enterDir(os.path.join(Plugin.getVar(OPUSDSD_HOME), "commands"))
+        self._enterDir(Plugin.getVar(OPUSDSD_HOME))
         gpus = ','.join(str(i) for i in self.getGpuList())
         self.runJob(Plugin.getProgram(program, gpus), ' '.join(args))
 
