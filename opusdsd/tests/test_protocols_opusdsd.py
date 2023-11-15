@@ -1,8 +1,10 @@
 # **************************************************************************
 # *
-# * Authors:     Grigory Sharov (gsharov@mrc-lmb.cam.ac.uk)
+# * Authors:     Grigory Sharov (gsharov@mrc-lmb.cam.ac.uk) [1]
+# *              James Krieger (jmkrieger@cnb.csic.es) [2]
 # *
-# * MRC Laboratory of Molecular Biology (MRC-LMB)
+# * [1] MRC Laboratory of Molecular Biology (MRC-LMB)
+# * [2] Unidad de  Biocomputacion, Centro Nacional de Biotecnologia, CSIC (CNB-CSIC)
 # *
 # * This program is free software; you can redistribute it and/or modify
 # * it under the terms of the GNU General Public License as published by
@@ -30,11 +32,10 @@ from pyworkflow.tests import BaseTest, DataSet, setupTestProject
 from pyworkflow.utils import magentaStr
 from pwem.protocols import ProtImportParticles
 
-from ..protocols import (CryoDrgnProtPreprocess, CryoDrgnProtTrain,
-                         CryoDrgnProtAbinitio)
+from ..protocols import OpusDsdProtPreprocess, OpusDsdProtTrain
 
 
-class TestCryoDrgn(BaseTest):
+class TestOpusDsd(BaseTest):
     @classmethod
     def runImportParticlesStar(cls, partStar, mag, samplingRate):
         """ Import particles from Relion star file. """
@@ -60,7 +61,7 @@ class TestCryoDrgn(BaseTest):
 
     def runPreprocess(self, protLabel, particles, **kwargs):
         print(magentaStr(f"\n==> Testing cryoDRGN - {protLabel}:"))
-        protPreprocess = self.newProtocol(CryoDrgnProtPreprocess,
+        protPreprocess = self.newProtocol(OpusDsdProtPreprocess,
                                           objLabel=protLabel, **kwargs)
         protPreprocess.inputParticles.set(particles)
         return self.launchProtocol(protPreprocess)
@@ -102,13 +103,7 @@ class TestCryoDrgn(BaseTest):
         preprocess = self.runPreprocess("preprocess scale=64", parts, scaleSize=64)
 
         print(magentaStr("\n==> Testing cryoDRGN - training:"))
-        protTrain = self.newProtocol(CryoDrgnProtTrain, numEpochs=3, zDim=2)
+        protTrain = self.newProtocol(OpusDsdProtTrain, numEpochs=3, zDim=2)
         protTrain.inputParticles.set(preprocess.outputCryoDrgnParticles)
         self.launchProtocol(protTrain)
         self.checkTrainingOutput(protTrain)
-
-        print(magentaStr("\n==> Testing cryoDRGN - ab initio:"))
-        protAbinitio = self.newProtocol(CryoDrgnProtAbinitio, numEpochs=2, zDim=2)
-        protAbinitio.inputParticles.set(preprocess.outputCryoDrgnParticles)
-        self.launchProtocol(protAbinitio)
-        self.checkTrainingOutput(protAbinitio)

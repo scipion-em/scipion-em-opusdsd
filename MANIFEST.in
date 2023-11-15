@@ -8,4 +8,4 @@ include LICENSE
 include CHANGES.txt
 
 # Include conf file
-include cryodrgn/protocols.conf
+include opusdsd/protocols.conf

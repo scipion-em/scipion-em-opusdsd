@@ -2,9 +2,10 @@
 # *
 # * Authors:     Grigory Sharov (gsharov@mrc-lmb.cam.ac.uk) [1]
 # *              Yunior C. Fonseca Reyna (cfonseca@cnb.csic.es) [2]
+# *              James Krieger (jmkrieger@cnb.csic.es) [2]
 # *
 # * [1] MRC Laboratory of Molecular Biology (MRC-LMB)
-# * [2] Unidad de  Bioinformatica of Centro Nacional de Biotecnologia , CSIC
+# * [2] Unidad de  Biocomputacion, Centro Nacional de Biotecnologia, CSIC (CNB-CSIC)
 # *
 # * This program is free software; you can redistribute it and/or modify
 # * it under the terms of the GNU General Public License as published by
@@ -31,7 +32,6 @@ import pickle
 import numpy as np
 import re
 from glob import glob
-from enum import Enum
 
 import pyworkflow.utils as pwutils
 import pyworkflow.protocol.params as params
@@ -40,17 +40,12 @@ from pwem.protocols import ProtProcessParticles
 import pwem.objects as emobj
 
 from .. import Plugin
-from ..constants import EPOCH_LAST, EPOCH_SELECTION, WEIGHTS, CONFIG, Z_VALUES
+from ..constants import (EPOCH_LAST, EPOCH_SELECTION, WEIGHTS, CONFIG, 
+                         Z_VALUES, OPUSDSD_HOME)
 
 
-class outputs(Enum):
-    Particles = emobj.SetOfParticles
-    Volumes = emobj.SetOfVolumes
-
-
-class CryoDrgnProtBase(ProtProcessParticles):
+class OpusDsdProtBase(ProtProcessParticles):
     _label = None
-    _possibleOutputs = outputs
 
     def _createFilenameTemplates(self):
         """ Centralize how files are called within the protocol. """
@@ -156,14 +151,14 @@ class CryoDrgnProtBase(ProtProcessParticles):
         """ Create the protocol outputs. """
         # Creating a set of particles with z_values
         outImgSet = self._createParticleSet()
-        self._defineOutputs(**{outputs.Particles.name: outImgSet})
+        self._defineOutputs(Particles=outImgSet)
 
         # Creating a set of volumes with z_values
         fn = self._getExtraPath('volumes.sqlite')
         samplingRate = self.inputParticles.get().getSamplingRate()
         files, zValues = self._getVolumes()
         setOfVolumes = self._createVolumeSet(files, zValues, fn, samplingRate)
-        self._defineOutputs(**{outputs.Volumes.name: setOfVolumes})
+        self._defineOutputs(Volumes=setOfVolumes)
         self._defineSourceRelation(self.inputParticles.get(), setOfVolumes)
 
     # --------------------------- INFO functions ------------------------------
@@ -188,6 +183,7 @@ class CryoDrgnProtBase(ProtProcessParticles):
         ]
 
     def _runProgram(self, program, args):
+        self._enterDir(os.path.join(Plugin.getVar(OPUSDSD_HOME), "commands"))
         gpus = ','.join(str(i) for i in self.getGpuList())
         self.runJob(Plugin.getProgram(program, gpus), ' '.join(args))
 
@@ -237,11 +233,12 @@ class CryoDrgnProtBase(ProtProcessParticles):
         Create a set of particles with the associated z_values
         :return: a set of particles
         """
-        inputImgSet = self.inputParticles.get().ptcls.get()
+        cryoDRGParticles = self.inputParticles.get()
+        inImgSet = self.getProject().getProtocol(cryoDRGParticles.getObjParentId()).inputParticles.get()
         zValues = iter(self._getParticlesZvalues())
         outImgSet = self._createSetOfParticles()
-        outImgSet.copyInfo(inputImgSet)
-        outImgSet.copyItems(inputImgSet, updateItemCallback=self._setZValues,
+        outImgSet.copyInfo(inImgSet)
+        outImgSet.copyItems(inImgSet, updateItemCallback=self._setZValues,
                             itemDataIterator=zValues)
         setattr(outImgSet, WEIGHTS, pwobj.String(self._getFileName('weights')))
         setattr(outImgSet, CONFIG, pwobj.String(self._getFileName('config')))

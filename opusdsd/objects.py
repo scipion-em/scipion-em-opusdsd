@@ -1,8 +1,10 @@
 # **************************************************************************
 # *
-# * Authors:     Grigory Sharov (gsharov@mrc-lmb.cam.ac.uk)
+# * Authors:     J.M. de la Rosa Trevin (delarosatrevin@scilifelab.se) [1]
+# *              Grigory Sharov (gsharov@mrc-lmb.cam.ac.uk) [2]
 # *
-# * MRC Laboratory of Molecular Biology (MRC-LMB)
+# * [1] SciLifeLab, Stockholm University
+# * [2] MRC Laboratory of Molecular Biology, MRC-LMB
 # *
 # * This program is free software; you can redistribute it and/or modify
 # * it under the terms of the GNU General Public License as published by
@@ -24,4 +26,28 @@
 # *
 # **************************************************************************
 
-from .test_protocols_cryodrgn import TestCryoDrgn
+import pyworkflow.object as pwobj
+from pwem.objects import EMObject
+
+
+class CryoDrgnParticles(EMObject):
+
+    def __init__(self, filename=None, poses=None, ctfs=None,
+                 dim=None, samplingRate=None, **kwargs):
+        EMObject.__init__(self, **kwargs)
+
+        self.filename = pwobj.String(filename)
+        self.poses = pwobj.String(poses)
+        self.ctfs = pwobj.String(ctfs)
+        self.samplingRate = pwobj.Float(samplingRate)
+        self.dim = pwobj.Integer(dim)
+
+    def __str__(self):
+        return ('CryoDrgnParticles (%d x %d, %0.2f Å/px)'
+                % (self.dim, self.dim, self.samplingRate))
+
+    def getSamplingRate(self):
+        return self.samplingRate.get()
+
+    def getXDim(self):
+        return self.dim.get()
