@@ -34,7 +34,7 @@ from .protocol_base import OpusDsdProtBase
 
 class OpusDsdProtTrain(OpusDsdProtBase):
     """
-    Protocol to train cryoDRGN neural network.
+    Protocol to train OPUS-DSD neural network.
     """
     _label = 'training VAE'
     _devStatus = PROD
@@ -69,7 +69,7 @@ class OpusDsdProtTrain(OpusDsdProtBase):
         pwutils.cleanPath(self.getOutputDir())
         pwutils.makePath(self.getOutputDir())
 
-        # Call cryoDRGN with the appropriate parameters
+        # Call OPUS-DSD with the appropriate parameters
         self._runProgram('train_vae', self._getTrainingArgs())
 
     # --------------------------- INFO functions ------------------------------

@@ -40,7 +40,7 @@ from .constants import *
 
 
 class OpusDsdViewer(EmProtocolViewer):
-    """ Visualization of cryoDRGN results. """
+    """ Visualization of OPUS-DSD results. """
 
     _environments = [DESKTOP_TKINTER]
     _targets = [OpusDsdProtTrain]

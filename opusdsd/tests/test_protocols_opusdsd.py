@@ -60,7 +60,7 @@ class TestOpusDsd(BaseTest):
         cls.protImport = cls.runImportParticlesStar(cls.partFn, 50000, 3.54)
 
     def runPreprocess(self, protLabel, particles, **kwargs):
-        print(magentaStr(f"\n==> Testing cryoDRGN - {protLabel}:"))
+        print(magentaStr(f"\n==> Testing OPUS-DSD - {protLabel}:"))
         protPreprocess = self.newProtocol(OpusDsdProtPreprocess,
                                           objLabel=protLabel, **kwargs)
         protPreprocess.inputParticles.set(particles)
@@ -68,7 +68,7 @@ class TestOpusDsd(BaseTest):
 
     def checkPreprocessOutput(self, preprocessProt):
         """ Do some check on the output of the preprocess. """
-        output = getattr(preprocessProt, 'outputCryoDrgnParticles', None)
+        output = getattr(preprocessProt, 'outputOpusDsdParticles', None)
         self.assertIsNotNone(output)
 
         filename = output.filename.get()
@@ -102,8 +102,8 @@ class TestOpusDsd(BaseTest):
         parts = self.protImport.outputParticles
         preprocess = self.runPreprocess("preprocess scale=64", parts, scaleSize=64)
 
-        print(magentaStr("\n==> Testing cryoDRGN - training:"))
+        print(magentaStr("\n==> Testing OPUS-DSD - training:"))
         protTrain = self.newProtocol(OpusDsdProtTrain, numEpochs=3, zDim=2)
-        protTrain.inputParticles.set(preprocess.outputCryoDrgnParticles)
+        protTrain.inputParticles.set(preprocess.outputOpusDsdParticles)
         self.launchProtocol(protTrain)
         self.checkTrainingOutput(protTrain)

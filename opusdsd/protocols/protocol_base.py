@@ -75,8 +75,8 @@ class OpusDsdProtBase(ProtProcessParticles):
                             " set to i.e. *0 1 2*.")
 
         form.addParam('inputParticles', params.PointerParam,
-                      pointerClass="CryoDrgnParticles",
-                      label='CryoDrgn particles')
+                      pointerClass="OpusDsdParticles",
+                      label='OPUS-DSD particles')
 
         form.addParam('zDim', params.IntParam, default=8,
                       validators=[params.Positive],

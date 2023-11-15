@@ -30,7 +30,7 @@ import pyworkflow.object as pwobj
 from pwem.objects import EMObject
 
 
-class CryoDrgnParticles(EMObject):
+class OpusDsdParticles(EMObject):
 
     def __init__(self, filename=None, poses=None, ctfs=None,
                  dim=None, samplingRate=None, **kwargs):
@@ -43,7 +43,7 @@ class CryoDrgnParticles(EMObject):
         self.dim = pwobj.Integer(dim)
 
     def __str__(self):
-        return ('CryoDrgnParticles (%d x %d, %0.2f Å/px)'
+        return ('OpusDsdParticles (%d x %d, %0.2f Å/px)'
                 % (self.dim, self.dim, self.samplingRate))
 
     def getSamplingRate(self):

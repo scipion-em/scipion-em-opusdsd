@@ -37,14 +37,14 @@ from pwem.constants import ALIGN_PROJ, ALIGN_NONE
 from pwem.protocols import ProtProcessParticles
 
 from .. import Plugin
-from ..objects import CryoDrgnParticles
+from ..objects import OpusDsdParticles
 from ..constants import OPUSDSD_HOME
 
 convert = Domain.importFromPlugin('relion.convert', doRaise=True)
 
 
 class outputs(Enum):
-    outputCryoDrgnParticles = CryoDrgnParticles
+    outputOpusDsdParticles = OpusDsdParticles
 
 
 class OpusDsdProtPreprocess(ProtProcessParticles):
@@ -122,7 +122,7 @@ class OpusDsdProtPreprocess(ProtProcessParticles):
 
     # --------------------------- STEPS functions -----------------------------
     def convertInputStep(self):
-        """ Create a star file as expected by cryoDRGN."""
+        """ Create a star file as expected by OPUS-DSD."""
         outputFolder = self._getFileName('output_folder')
         pwutils.cleanPath(outputFolder)
         pwutils.makePath(outputFolder)
@@ -144,13 +144,13 @@ class OpusDsdProtPreprocess(ProtProcessParticles):
 
     def createOutputStep(self):
         poses = self._getFileName('output_poses') if self._inputHasAlign() else None
-        output = CryoDrgnParticles(filename=self._getFileName('output_txt'),
+        output = OpusDsdParticles(filename=self._getFileName('output_txt'),
                                    poses=poses,
                                    ctfs=self._getFileName('output_ctfs'),
                                    dim=self._getBoxSize() + 1,
                                    samplingRate=self._getSamplingRate())
 
-        self._defineOutputs(**{outputs.outputCryoDrgnParticles.name: output})
+        self._defineOutputs(**{outputs.outputOpusDsdParticles.name: output})
         self._defineSourceRelation(self.inputParticles, output)
 
     # --------------------------- INFO functions ------------------------------
@@ -161,7 +161,7 @@ class OpusDsdProtPreprocess(ProtProcessParticles):
             summary.append("Output not ready")
         else:
             poses = "poses and" if self._inputHasAlign() else ""
-            summary.append(f"Created {poses} ctf files for cryoDRGN.")
+            summary.append(f"Created {poses} ctf files for OPUS-DSD.")
 
         return summary
 
@@ -186,7 +186,7 @@ class OpusDsdProtPreprocess(ProtProcessParticles):
                             "be able to use the output for ab initio training!")
 
         if self._getBoxSize() % 8 != 0:
-            warnings.append("CryoDRGN mixed-precision (AMP) training will "
+            warnings.append("OPUS-DSD mixed-precision (AMP) training will "
                             "require box size divisible by 8. Alternatively, "
                             "you will have to provide --no-amp option.")
 
@@ -218,7 +218,7 @@ class OpusDsdProtPreprocess(ProtProcessParticles):
     def _getParseCtfArgs(self):
         args = ['%s ' % self._getFileName('input_parts'),
                 '-o %s ' % self._getFileName('output_ctfs'),
-                '--ps 0']  # required due to cryodrgn parsing bug
+                '--ps 0']  # required due to OPUS-DSD parsing bug
 
         return args
 
