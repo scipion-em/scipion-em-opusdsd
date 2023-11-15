@@ -1,28 +1,8 @@
 ===============
-cryoDRGN plugin
+OPUS-DSD plugin
 ===============
 
-This plugin provides a wrapper for `cryoDRGN <https://github.com/zhonge/cryodrgn>`_ software: Deep Reconstructing Generative Networks for cryo-EM heterogeneous reconstruction.
-
-.. image:: https://img.shields.io/pypi/v/scipion-em-cryodrgn.svg
-        :target: https://pypi.python.org/pypi/scipion-em-cryodrgn
-        :alt: PyPI release
-
-.. image:: https://img.shields.io/pypi/l/scipion-em-cryodrgn.svg
-        :target: https://pypi.python.org/pypi/scipion-em-cryodrgn
-        :alt: License
-
-.. image:: https://img.shields.io/pypi/pyversions/scipion-em-cryodrgn.svg
-        :target: https://pypi.python.org/pypi/scipion-em-cryodrgn
-        :alt: Supported Python versions
-
-.. image:: https://img.shields.io/sonar/quality_gate/scipion-em_scipion-em-cryodrgn?server=https%3A%2F%2Fsonarcloud.io
-        :target: https://sonarcloud.io/dashboard?id=scipion-em_scipion-em-cryodrgn
-        :alt: SonarCloud quality gate
-
-.. image:: https://img.shields.io/pypi/dm/scipion-em-cryodrgn
-        :target: https://pypi.python.org/pypi/scipion-em-cryodrgn
-        :alt: Downloads
+This plugin provides a wrapper for `OPUS-DSD <https://github.com/alncat/opusDSD>`_ software: Deep structural disentanglement for cryo-EM single-particle analysis.
 
 Installation
 -------------
@@ -33,7 +13,7 @@ a) Stable version
 
 .. code-block::
 
-   scipion installp -p scipion-em-cryodrgn
+   scipion installp -p scipion-em-opusdsd
 
 b) Developer's version
 
@@ -41,15 +21,15 @@ b) Developer's version
 
     .. code-block::
 
-        git clone -b devel https://github.com/scipion-em/scipion-em-cryodrgn.git
+        git clone -b devel https://github.com/scipion-em/scipion-em-opusdsd.git
 
    * install
 
     .. code-block::
 
-       scipion installp -p /path/to/scipion-em-cryodrgn --devel
+       scipion installp -p /path/to/scipion-em-opusdsd --devel
 
-cryoDRGN software will be installed automatically with the plugin but you can also use an existing installation by providing *CRYODRGN_ENV_ACTIVATION* (see below).
+OPUS-DSD software will be installed automatically with the plugin but you can also use an existing installation by providing *OPUSDSD_ENV_ACTIVATION* (see below).
 
 **Important:** you need to have conda (miniconda3 or anaconda3) pre-installed to use this program.
 
@@ -61,20 +41,20 @@ python with conda ones. One example of this could can be seen below but
 depending on your conda version and shell you will need something different:
 CONDA_ACTIVATION_CMD = eval "$(/extra/miniconda3/bin/conda shell.bash hook)"
 
-*CRYODRGN_ENV_ACTIVATION* (default = conda activate cryodrgn-2.3.0):
-Command to activate the cryoDRGN environment.
+*OPUSDSD_ENV_ACTIVATION* (default = conda activate opusdsd-2.3.0):
+Command to activate the opusdsd environment.
 
 
 Verifying
 ---------
 To check the installation, simply run the following Scipion test:
 
-``scipion test cryodrgn.tests.test_protocols_cryodrgn.TestCryoDrgn``
+``scipion test opusdsd.tests.test_protocols_opusdsd.TestOpusDsd``
 
 Supported versions
 ------------------
 
-1.0.0, 1.1.0, 2.1.0-beta, 2.3.0
+0.3.2b
 
 Protocols
 ----------
@@ -86,7 +66,4 @@ Protocols
 References
 -----------
 
-1. Uncovering structural ensembles from single particle cryo-EM data using cryoDRGN. Laurel Kinman, Barrett Powell, Ellen Zhong, Bonnie Berger, Joey Davis. https://www.biorxiv.org/content/10.1101/2022.08.09.503342v1
-2. CryoDRGN: Reconstruction of heterogeneous cryo-EM structures using neural networks. Ellen D. Zhong, Tristan Bepler, Bonnie Berger, Joseph H. Davis. Nature Methods 18(2), 2021, 176-182. DOI 10.1038/s41592-020-01049-4
-3. Reconstructing continuous distributions of 3D protein structure from cryo-EM images. Ellen D. Zhong, Tristan Bepler, Joseph H. Davis, Bonnie Berger. ICLR 2020, https://arxiv.org/abs/1909.05215
-4. CryoDRGN2: Ab Initio Neural Reconstruction of 3D Protein Structures From Real Cryo-EM Images. Ellen D. Zhong, Adam Lerer, Joseph H. Davis, Bonnie Berger; Proceedings of the IEEE/CVF International Conference on Computer Vision (ICCV), 2021, pp. 4066-4075. https://openaccess.thecvf.com/content/ICCV2021/html/Zhong_CryoDRGN2_Ab_Initio_Neural_Reconstruction_of_3D_Protein_Structures_From_ICCV_2021_paper.html
+1. OPUS-DSD: deep structural disentanglement for cryo-EM single-particle analysis. Zhenwei Luo, Fengyun Ni, Qinghua Wang, Jianpeng Ma. https://www.nature.com/articles/s41592-023-02031-6

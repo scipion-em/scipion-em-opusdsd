@@ -1,8 +1,10 @@
 # **************************************************************************
 # *
-# * Authors:     Grigory Sharov (gsharov@mrc-lmb.cam.ac.uk)
+# * Authors:     Grigory Sharov (gsharov@mrc-lmb.cam.ac.uk) [1]
+# *              James Krieger (jmkrieger@cnb.csic.es) [2]
 # *
-# * MRC Laboratory of Molecular Biology (MRC-LMB)
+# * [1] MRC Laboratory of Molecular Biology (MRC-LMB)
+# * [2] Unidad de  Biocomputacion, Centro Nacional de Biotecnologia, CSIC (CNB-CSIC)
 # *
 # * This program is free software; you can redistribute it and/or modify
 # * it under the terms of the GNU General Public License as published by
@@ -36,6 +38,7 @@ from pwem.protocols import ProtProcessParticles
 
 from .. import Plugin
 from ..objects import CryoDrgnParticles
+from ..constants import OPUSDSD_HOME
 
 convert = Domain.importFromPlugin('relion.convert', doRaise=True)
 
@@ -44,7 +47,7 @@ class outputs(Enum):
     outputCryoDrgnParticles = CryoDrgnParticles
 
 
-class CryoDrgnProtPreprocess(ProtProcessParticles):
+class OpusDsdProtPreprocess(ProtProcessParticles):
     """ Protocol to downsample a particle stack and prepare alignment/CTF parameters.
     """
     _label = 'preprocess'
@@ -146,7 +149,6 @@ class CryoDrgnProtPreprocess(ProtProcessParticles):
                                    ctfs=self._getFileName('output_ctfs'),
                                    dim=self._getBoxSize() + 1,
                                    samplingRate=self._getSamplingRate())
-        output.ptcls = self.inputParticles.clone()
 
         self._defineOutputs(**{outputs.outputCryoDrgnParticles.name: output})
         self._defineSourceRelation(self.inputParticles, output)
@@ -192,8 +194,8 @@ class CryoDrgnProtPreprocess(ProtProcessParticles):
 
     # --------------------------- UTILS functions -----------------------------
     def _getPreprocessArgs(self):
-        args = ['%s ' % self._getFileName('input_parts'),
-                '-o %s ' % self._getFileName('output_parts'),
+        args = ['%s ' % os.path.abspath(self._getFileName('input_parts')),
+                '-o %s ' % os.path.abspath(self._getFileName('output_parts')),
                 '-D %d' % self._getBoxSize(),
                 '--window-r %0.2f' % self.winSize if self.doWindow else '--no-window',
                 '--max-threads %d ' % self.numberOfThreads
@@ -243,4 +245,5 @@ class CryoDrgnProtPreprocess(ProtProcessParticles):
         return self._getInputParticles().hasAlignmentProj()
 
     def _runProgram(self, program, args):
+        self._enterDir(os.path.join(Plugin.getVar(OPUSDSD_HOME), "commands"))
         self.runJob(Plugin.getProgram(program), ' '.join(args))

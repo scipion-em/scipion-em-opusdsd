@@ -1,8 +1,11 @@
+# coding: utf-8
 # **************************************************************************
 # *
-# * Authors:     Grigory Sharov (gsharov@mrc-lmb.cam.ac.uk)
+# * Authors:     Grigory Sharov (gsharov@mrc-lmb.cam.ac.uk) [1]
+# *              James Krieger (jmkrieger@cnb.csic.es) [2]
 # *
-# * MRC Laboratory of Molecular Biology (MRC-LMB)
+# * [1] MRC Laboratory of Molecular Biology (MRC-LMB)
+# * [2] Unidad de  Biocomputacion, Centro Nacional de Biotecnologia, CSIC (CNB-CSIC)
 # *
 # * This program is free software; you can redistribute it and/or modify
 # * it under the terms of the GNU General Public License as published by
@@ -23,36 +26,14 @@
 # *  e-mail address 'scipion@cnb.csic.es'
 # *
 # **************************************************************************
-
-
-def getCryoDrgnEnvName(version):
-    return "cryodrgn-%s" % version
-
-
-V1_0_0 = "1.0.0"
-V1_1_0 = "1.1.0"
-V2_1_0 = "2.1.0"
-V2_3_0 = "2.3.0"
-
-VERSIONS = [V1_0_0, V1_1_0, V2_1_0, V2_3_0]
-CRYODRGN_DEFAULT_VER_NUM = V2_3_0
-
-DEFAULT_ENV_NAME = getCryoDrgnEnvName(CRYODRGN_DEFAULT_VER_NUM)
-DEFAULT_ACTIVATION_CMD = 'conda activate ' + DEFAULT_ENV_NAME
-CRYODRGN_ENV_ACTIVATION = 'CRYODRGN_ENV_ACTIVATION'
-
-# Viewer constants
-EPOCH_LAST = 0
-EPOCH_SELECTION = 1
-
-VOLUME_SLICES = 0
-VOLUME_CHIMERA = 1
-
-# extra metadata attrs
-Z_VALUES = "_cryodrgnZValues"
-WEIGHTS = "_cryodrgnWeights"
-CONFIG = "_cryodrgnConfig"
-
-# ab initio type
-AB_INITIO_HOMO = 0
-AB_INITIO_HETERO = 1
+"""
+@article{Luo2023,
+ title={OPUS-DSD: deep structural disentanglement for cryo-EM single-particle analysis.},
+ author={Luo, Zhenwei and Ni, Fengyun and Wang, Qinghua and Ma, Jianpeng},
+ journal={Nature Methods},
+ volume={20},
+ pages={1729-1738},
+ year={2023},
+ doi = {https://www.nature.com/articles/s41592-023-02031-6}
+}
+"""

@@ -1,8 +1,10 @@
 # **************************************************************************
 # *
-# * Authors:     Grigory Sharov (gsharov@mrc-lmb.cam.ac.uk)
+# * Authors:     Grigory Sharov (gsharov@mrc-lmb.cam.ac.uk) [1]
+# *              James Krieger (jmkrieger@cnb.csic.es) [2]
 # *
-# * MRC Laboratory of Molecular Biology (MRC-LMB)
+# * [1] MRC Laboratory of Molecular Biology (MRC-LMB)
+# * [2] Unidad de  Biocomputacion, Centro Nacional de Biotecnologia, CSIC (CNB-CSIC)
 # *
 # * This program is free software; you can redistribute it and/or modify
 # * it under the terms of the GNU General Public License as published by
@@ -36,7 +38,7 @@ from setuptools import setup, find_packages
 from codecs import open
 from os import path
 
-from cryodrgn import __version__
+from opusdsd import __version__
 
 here = path.abspath(path.dirname(__file__))
 
@@ -60,7 +62,7 @@ setup(
     # There are some restrictions on what makes a valid project name
     # specification here:
     # https://packaging.python.org/specifications/core-metadata/#name
-    name='scipion-em-cryodrgn',  # Required
+    name='scipion-em-opusdsd',  # Required
 
     # Versions should comply with PEP 440:
     # https://www.python.org/dev/peps/pep-0440/
@@ -73,7 +75,7 @@ setup(
     # This is a one-line description or tagline of what your project does. This
     # corresponds to the "Summary" metadata field:
     # https://packaging.python.org/specifications/core-metadata/#summary
-    description='Plugin to use cryoDRGN within the Scipion framework',  # Required
+    description='Plugin to use Opus-DSD within the Scipion framework',  # Required
 
     # This is an optional longer description of your project that represents
     # the body of text which users will see when they visit PyPI.
@@ -89,15 +91,15 @@ setup(
     #
     # This field corresponds to the "Home-Page" metadata field:
     # https://packaging.python.org/specifications/core-metadata/#home-page-optional
-    url='https://github.com/scipion-em/scipion-em-cryodrgn',  # Optional
+    url='https://github.com/scipion-em/scipion-em-opusdsd',  # Optional
 
     # This should be your name or the name of the organization which owns the
     # project.
-    author='Grigory Sharov',  # Optional
+    author='James Krieger',  # Optional
 
     # This should be a valid email address corresponding to the author listed
     # above.
-    author_email='sharov.grigory@gmail.com',  # Optional
+    author_email='jamesmkrieger@gmail.com',  # Optional
 
     # Classifiers help users find your project by categorizing it.
     #

@@ -1,8 +1,10 @@
 # **************************************************************************
 # *
-# * Authors:     Grigory Sharov (gsharov@mrc-lmb.cam.ac.uk)
+# * Authors:     Grigory Sharov (gsharov@mrc-lmb.cam.ac.uk) [1]
+# *              James Krieger (jmkrieger@cnb.csic.es) [2]
 # *
-# * MRC Laboratory of Molecular Biology (MRC-LMB)
+# * [1] MRC Laboratory of Molecular Biology (MRC-LMB)
+# * [2] Unidad de  Biocomputacion, Centro Nacional de Biotecnologia, CSIC (CNB-CSIC)
 # *
 # * This program is free software; you can redistribute it and/or modify
 # * it under the terms of the GNU General Public License as published by
@@ -33,15 +35,15 @@ from pyworkflow.viewer import DESKTOP_TKINTER
 from pwem.viewers import ObjectView, ChimeraView, EmProtocolViewer
 
 from . import Plugin
-from .protocols import CryoDrgnProtTrain, CryoDrgnProtAbinitio
+from .protocols import OpusDsdProtTrain
 from .constants import *
 
 
-class CryoDrgnViewer(EmProtocolViewer):
+class OpusDsdViewer(EmProtocolViewer):
     """ Visualization of cryoDRGN results. """
 
     _environments = [DESKTOP_TKINTER]
-    _targets = [CryoDrgnProtTrain, CryoDrgnProtAbinitio]
+    _targets = [OpusDsdProtTrain]
     _label = 'analyze results'
 
     def __init__(self, **kwargs):

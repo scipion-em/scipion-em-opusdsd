@@ -1,8 +1,10 @@
 # **************************************************************************
 # *
-# * Authors:     Grigory Sharov (gsharov@mrc-lmb.cam.ac.uk)
+# * Authors:     Grigory Sharov (gsharov@mrc-lmb.cam.ac.uk) [1]
+# *              James Krieger (jmkrieger@cnb.csic.es) [2]
 # *
-# * MRC Laboratory of Molecular Biology (MRC-LMB)
+# * [1] MRC Laboratory of Molecular Biology (MRC-LMB)
+# * [2] Unidad de  Biocomputacion, Centro Nacional de Biotecnologia, CSIC (CNB-CSIC)
 # *
 # * This program is free software; you can redistribute it and/or modify
 # * it under the terms of the GNU General Public License as published by
@@ -32,23 +34,24 @@ from pyworkflow import Config
 from .constants import *
 
 
-__version__ = '3.11'
-_references = ['Zhong2020', 'Zhong2021', 'Zhong2021b', 'Kinman2022']
+__version__ = '3.0.0'
+_references = ['Luo2023']
 _logo = "cryodrgn_logo.png"
 
 
 class Plugin(pwem.Plugin):
-    _url = "https://github.com/scipion-em/scipion-em-cryodrgn"
+    _url = "https://github.com/scipion-em/scipion-em-opusdsd"
     _supportedVersions = VERSIONS
 
     @classmethod
     def _defineVariables(cls):
-        cls._defineVar(CRYODRGN_ENV_ACTIVATION, DEFAULT_ACTIVATION_CMD)
+        cls._defineVar(OPUSDSD_ENV_ACTIVATION, DEFAULT_ACTIVATION_CMD)
+        cls._defineEmVar(OPUSDSD_HOME, getOpusDsdEnvName())
 
     @classmethod
-    def getCryoDrgnEnvActivation(cls):
+    def getOpusDsdEnvActivation(cls):
         """ Remove the scipion home and activate the conda environment. """
-        activation = cls.getVar(CRYODRGN_ENV_ACTIVATION)
+        activation = cls.getVar(OPUSDSD_ENV_ACTIVATION)
         scipionHome = Config.SCIPION_HOME + os.path.sep
 
         return activation.replace(scipionHome, "", 1)
@@ -76,25 +79,19 @@ class Plugin(pwem.Plugin):
     @classmethod
     def defineBinaries(cls, env):
         for ver in VERSIONS:
-            cls.addCryoDrgnPackage(env, ver,
-                                   default=ver == CRYODRGN_DEFAULT_VER_NUM)
+            cls.addOpusDsdPackage(env, ver,
+                                   default=ver == OPUSDSD_DEFAULT_VER_NUM)
 
     @classmethod
-    def addCryoDrgnPackage(cls, env, version, default=False):
-        ENV_NAME = getCryoDrgnEnvName(version)
-        FLAG = f"cryodrgn_{version}_installed"
-
-        cudaVersion = cls.getVersionFromPath(pwem.Config.CUDA_LIB, default="11.6",
-                                             pattern="cuda")
-        toolkit = "%s.%s" % (cudaVersion.major, cudaVersion.minor)
+    def addOpusDsdPackage(cls, env, version, default=False):
+        ENV_NAME = getOpusDsdEnvName(version)
+        FLAG = f"opusdsd_{version}_installed"
 
         # try to get CONDA activation command
         installCmds = [
             cls.getCondaActivationCmd(),
-            f'conda create -y -n {ENV_NAME} python=3.9 &&',
+            f'conda create -y --name {ENV_NAME} --file spec-file &&',
             f'conda activate {ENV_NAME} &&',
-            f'conda install -y pytorch-gpu cudatoolkit={toolkit} -c pytorch -c conda-forge &&',
-            'pip install -e . &&',
             f'touch {FLAG}'  # Flag installation finished
         ]
 
@@ -102,18 +99,18 @@ class Plugin(pwem.Plugin):
         # keep path since conda likely in there
         installEnvVars = {'PATH': envPath} if envPath else None
 
-        branch = (V2_1_0 + "-beta") if version == V2_1_0 else version
-        url = "https://github.com/zhonge/cryodrgn.git"
+        branch = "main"
+        url = "https://github.com/alncat/opusDSD"
         gitCmds = [
             'cd .. &&',
-            f'git clone -b {branch} {url} cryodrgn-{version} &&',
-            f'cd cryodrgn-{version};'
+            f'git clone -b {branch} {url} opusdsd-{version} &&',
+            f'cd opusdsd-{version};'
         ]
         gitCmds.extend(installCmds)
-        cryodrgnCmds = [(" ".join(gitCmds), FLAG)]
-        env.addPackage('cryodrgn', version=version,
+        opusdsdCmds = [(" ".join(gitCmds), FLAG)]
+        env.addPackage('opusdsd', version=version,
                        tar='void.tgz',
-                       commands=cryodrgnCmds,
+                       commands=opusdsdCmds,
                        neededProgs=cls.getDependencies(),
                        default=default,
                        vars=installEnvVars)
@@ -122,12 +119,12 @@ class Plugin(pwem.Plugin):
     def getActivationCmd(cls):
         """ Return the activation command. """
         return '%s %s' % (cls.getCondaActivationCmd(),
-                          cls.getCryoDrgnEnvActivation())
+                          cls.getOpusDsdEnvActivation())
 
     @classmethod
     def getProgram(cls, program, gpus='0'):
-        """ Create cryoDRGN command line. """
-        fullProgram = '%s && CUDA_VISIBLE_DEVICES=%s cryodrgn %s' % (
+        """ Create Opus-DSD command line. """
+        fullProgram = '%s && CUDA_VISIBLE_DEVICES=%s python -m cryodrgn.commands.%s' % (
             cls.getActivationCmd(), gpus, program)
 
         return fullProgram
@@ -135,20 +132,5 @@ class Plugin(pwem.Plugin):
     @classmethod
     def getActiveVersion(cls, *args):
         """ Return the env name that is currently active. """
-        envVar = cls.getVar(CRYODRGN_ENV_ACTIVATION)
+        envVar = cls.getVar(OPUSDSD_ENV_ACTIVATION)
         return envVar.split()[-1].split("-")[-1]
-
-    @classmethod
-    def versionGE(cls, version):
-        """ Return True if current version of cryodrgn is newer
-         or equal than the input argument.
-         Params:
-            version: string version (semantic version, e.g 0.3.5)
-        """
-        v1 = cls.getActiveVersion()
-        if v1 not in VERSIONS:
-            raise Exception("This version of cryoDRGN is not supported: ", v1)
-
-        if VERSIONS.index(v1) < VERSIONS.index(version):
-            return False
-        return True

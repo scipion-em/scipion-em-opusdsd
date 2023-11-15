@@ -1,8 +1,10 @@
 # **************************************************************************
 # *
-# * Authors:     Grigory Sharov (gsharov@mrc-lmb.cam.ac.uk)
+# * Authors:     Grigory Sharov (gsharov@mrc-lmb.cam.ac.uk) [1]
+# *              James Krieger (jmkrieger@cnb.csic.es) [2]
 # *
-# * MRC Laboratory of Molecular Biology (MRC-LMB)
+# * [1] MRC Laboratory of Molecular Biology (MRC-LMB)
+# * [2] Unidad de  Biocomputacion, Centro Nacional de Biotecnologia, CSIC (CNB-CSIC)
 # *
 # * This program is free software; you can redistribute it and/or modify
 # * it under the terms of the GNU General Public License as published by
@@ -24,6 +26,32 @@
 # *
 # **************************************************************************
 
-from .protocol_preprocess import CryoDrgnProtPreprocess
-from .protocol_train import CryoDrgnProtTrain
-from .protocol_abinitio import CryoDrgnProtAbinitio
+V0_3_2B = "0.3.2b"
+
+def getOpusDsdEnvName(version=V0_3_2B):
+    return "opusdsd-%s" % version
+
+VERSIONS = [V0_3_2B]
+OPUSDSD_DEFAULT_VER_NUM = V0_3_2B
+
+OPUSDSD_HOME = 'OPUSDSD_HOME'
+
+DEFAULT_ENV_NAME = getOpusDsdEnvName(OPUSDSD_DEFAULT_VER_NUM)
+DEFAULT_ACTIVATION_CMD = 'conda activate ' + DEFAULT_ENV_NAME
+OPUSDSD_ENV_ACTIVATION = 'OPUSDSD_ENV_ACTIVATION'
+
+# Viewer constants
+EPOCH_LAST = 0
+EPOCH_SELECTION = 1
+
+VOLUME_SLICES = 0
+VOLUME_CHIMERA = 1
+
+# extra metadata attrs
+Z_VALUES = "_opusdsdZValues"
+WEIGHTS = "_opusdsdWeights"
+CONFIG = "_opusdsdConfig"
+
+# ab initio type
+AB_INITIO_HOMO = 0
+AB_INITIO_HETERO = 1

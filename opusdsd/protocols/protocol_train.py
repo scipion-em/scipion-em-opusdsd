@@ -25,49 +25,43 @@
 # **************************************************************************
 
 import pyworkflow.utils as pwutils
-from pyworkflow.constants import NEW
-import pyworkflow.protocol.params as params
 import pyworkflow.object as pwobj
+from pyworkflow.constants import PROD
+import pyworkflow.protocol.params as params
 
-from .. import Plugin
-from ..constants import V2_1_0, AB_INITIO_HOMO, AB_INITIO_HETERO
-from .protocol_base import CryoDrgnProtBase
+from .protocol_base import OpusDsdProtBase
 
 
-class CryoDrgnProtAbinitio(CryoDrgnProtBase):
+class OpusDsdProtTrain(OpusDsdProtBase):
     """
-    Protocol to run ab-initio reconstruction with cryoDRGN2 neural network.
+    Protocol to train cryoDRGN neural network.
     """
-    _label = 'training ab initio'
-    _devStatus = NEW
-
-    @classmethod
-    def isDisabled(cls):
-        return not Plugin.versionGE(V2_1_0)
+    _label = 'training VAE'
+    _devStatus = PROD
 
     # --------------------------- DEFINE param functions ----------------------
     def _defineParams(self, form):
-        CryoDrgnProtBase._defineParams(self, form)
-        form.getParam('zDim').default = pwobj.Integer(1)
-        form.getParam('numEpochs').default = pwobj.Integer(30)
+        OpusDsdProtBase._defineParams(self, form)
+        form.getParam('numberOfThreads').default = pwobj.Integer(1)
 
     def _defineAdvancedParams(self, form):
-        form.addParam('protType', params.EnumParam,
-                      choices=['homogeneous', 'heterogeneous'],
-                      default=AB_INITIO_HETERO,
-                      display=params.EnumParam.DISPLAY_HLIST,
-                      label='Ab initio type')
-
         form.addSection(label='Advanced')
-        form.addParam('searchRange', params.IntParam, default=10,
-                      label='Translational search range (px)')
-        form.addParam('psFreq', params.IntParam, default=5,
-                      label='Update poses every N epochs')
+        group = form.addGroup('Encoder')
+        group.addParam('qLayers', params.IntParam, default=3,
+                       label='Number of hidden layers')
+        group.addParam('qDim', params.IntParam, default=1024,
+                       label='Number of nodes in hidden layers')
+
+        group = form.addGroup('Decoder')
+        group.addParam('pLayers', params.IntParam, default=3,
+                       label='Number of hidden layers')
+        group.addParam('pDim', params.IntParam, default=1024,
+                       label='Number of nodes in hidden layers')
 
         form.addParam('extraParams', params.StringParam, default="",
                       label="Extra params",
                       help="Here you can provide all extra command-line "
-                           "parameters. See *cryodrgn abinit_homo -h* for help.")
+                           "parameters. See *cryodrgn train_vae -h* for help.")
 
     # --------------------------- STEPS functions -----------------------------
     def runTrainingStep(self):
@@ -76,53 +70,43 @@ class CryoDrgnProtAbinitio(CryoDrgnProtBase):
         pwutils.makePath(self.getOutputDir())
 
         # Call cryoDRGN with the appropriate parameters
-        protType = self.protType.get()
-        program = "homo" if protType == AB_INITIO_HOMO else "het"
-        self._runProgram("abinit_" + program, self._getTrainingArgs(protType))
+        self._runProgram('train_vae', self._getTrainingArgs())
 
     # --------------------------- INFO functions ------------------------------
     def _summary(self):
-        summary = ["Training ab initio for %d epochs." % self.numEpochs]
+        summary = ["Training VAE for %d epochs." % self.numEpochs]
 
         return summary
 
     def _validate(self):
-        errors = CryoDrgnProtBase._validateBase(self)
+        errors = OpusDsdProtBase._validateBase(self)
 
-        if self.zDim > 1 and self.protType.get() == AB_INITIO_HOMO:
-            errors.append("Latent variable must be 1 for "
-                          "homogeneous reconstruction")
-        if self.zDim == 1 and self.protType.get() == AB_INITIO_HETERO:
-            errors.append("Latent variable must be >1 for "
-                          "heterogeneous reconstruction")
+        if self.inputParticles.get().poses is None:
+            errors.append("Input particles have no poses (alignment)!")
 
         return errors
 
-    def _citations(self):
-        return ['Zhong2021b']
-
     # --------------------------- UTILS functions -----------------------------
-    def _getTrainingArgs(self, protType=AB_INITIO_HOMO):
+    def _getTrainingArgs(self):
         parts = self.inputParticles.get()
 
         args = [
             parts.filename.get(),
+            '--poses %s' % parts.poses,
             '--ctf %s' % parts.ctfs,
+            '--zdim %d' % self.zDim,
             '-o %s ' % self.getOutputDir(),
             '-n %d' % self.numEpochs,
-            '--t-extent %d' % self.searchRange,
-            '--ps-freq %d' % self.psFreq,
+            '--preprocessed',
+            '--max-threads %d ' % self.numberOfThreads,
+            '--enc-layers %d' % self.qLayers,
+            '--enc-dim %d' % self.qDim,
+            '--dec-layers %d' % self.pLayers,
+            '--dec-dim %d' % self.pDim
         ]
 
-        if protType == AB_INITIO_HETERO:
-            args.extend([
-                '--zdim %d' % self.zDim,
-                '--preprocessed',
-                '--max-threads %d' % self.numberOfThreads,
-            ])
-
-            if len(self.getGpuList()) > 1:
-                args.append('--multigpu')
+        if len(self.getGpuList()) > 1:
+            args.append('--multigpu')
 
         if self.extraParams.hasValue():
             args.append(self.extraParams.get())
