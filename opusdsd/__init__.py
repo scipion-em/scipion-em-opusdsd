@@ -90,7 +90,7 @@ class Plugin(pwem.Plugin):
         # try to get CONDA activation command
         installCmds = [
             cls.getCondaActivationCmd(),
-            f'conda env create -y --name {ENV_NAME} --file environment.yml &&',
+            f'conda env create --name {ENV_NAME} --file environment.yml --force &&',
             f'conda activate {ENV_NAME} &&',
             f'touch {FLAG}'  # Flag installation finished
         ]
@@ -101,11 +101,14 @@ class Plugin(pwem.Plugin):
 
         branch = "main"
         url = "https://github.com/alncat/opusDSD"
-        gitCmds = [
-            'cd .. &&',
-            f'git clone -b {branch} {url} opusdsd-{version} &&',
-            f'cd opusdsd-{version};'
-        ]
+        if os.path.exists(cls.getVar(OPUSDSD_HOME)):
+            gitCmds = []
+        else:
+            gitCmds = [
+                'cd .. &&',
+                f'git clone -b {branch} {url} opusdsd-{version} &&',
+                f'cd opusdsd-{version};'
+            ]
         gitCmds.extend(installCmds)
         opusdsdCmds = [(" ".join(gitCmds), FLAG)]
         env.addPackage('opusdsd', version=version,
@@ -125,7 +128,7 @@ class Plugin(pwem.Plugin):
     def getProgram(cls, program, gpus='0'):
         """ Create Opus-DSD command line. """
         fullProgram = 'cd %s && %s && CUDA_VISIBLE_DEVICES=%s python -m cryodrgn.commands.%s' % (
-            Plugin.getVar(OPUSDSD_HOME), cls.getActivationCmd(), gpus, program)
+            cls.getVar(OPUSDSD_HOME), cls.getActivationCmd(), gpus, program)
 
         return fullProgram
 
