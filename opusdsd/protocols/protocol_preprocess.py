@@ -38,7 +38,6 @@ from pwem.protocols import ProtProcessParticles
 
 from .. import Plugin
 from ..objects import OpusDsdParticles
-from ..constants import OPUSDSD_HOME
 
 convert = Domain.importFromPlugin('relion.convert', doRaise=True)
 
@@ -245,5 +244,4 @@ class OpusDsdProtPreprocess(ProtProcessParticles):
         return self._getInputParticles().hasAlignmentProj()
 
     def _runProgram(self, program, args):
-        self._enterDir(Plugin.getVar(OPUSDSD_HOME))
         self.runJob(Plugin.getProgram(program), ' '.join(args))

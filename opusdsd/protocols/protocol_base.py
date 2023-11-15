@@ -41,7 +41,7 @@ import pwem.objects as emobj
 
 from .. import Plugin
 from ..constants import (EPOCH_LAST, EPOCH_SELECTION, WEIGHTS, CONFIG, 
-                         Z_VALUES, OPUSDSD_HOME)
+                         Z_VALUES)
 
 
 class OpusDsdProtBase(ProtProcessParticles):
@@ -183,7 +183,6 @@ class OpusDsdProtBase(ProtProcessParticles):
         ]
 
     def _runProgram(self, program, args):
-        self._enterDir(Plugin.getVar(OPUSDSD_HOME))
         gpus = ','.join(str(i) for i in self.getGpuList())
         self.runJob(Plugin.getProgram(program, gpus), ' '.join(args))
 
