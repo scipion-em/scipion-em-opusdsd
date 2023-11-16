@@ -110,6 +110,10 @@ class OpusDsdProtPreprocess(ProtProcessParticles):
                       expertLevel=params.LEVEL_ADVANCED,
                       label="Are particles white?")
 
+        form.addParam('batchSize', params.IntParam, default=5000,
+                      label='Batch size', expertLevel=params.LEVEL_ADVANCED,
+                      help='Batch size for processing images')
+
         form.addParallelSection(threads=16, mpi=0)
 
     # --------------------------- INSERT steps functions ----------------------
@@ -201,7 +205,8 @@ class OpusDsdProtPreprocess(ProtProcessParticles):
                 '-D %d' % self._getBoxSize(),
                 '--window-r %0.2f' % self.winSize if self.doWindow else '--no-window',
                 '--max-threads %d ' % self.numberOfThreads,
-                '--relion31'
+                '--relion31 ',
+                '-b %s' % self.batchSize.get()
                 ]
 
         if not self.doInvert:
