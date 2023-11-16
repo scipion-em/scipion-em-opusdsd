@@ -153,7 +153,7 @@ class OpusDsdProtPreprocess(ProtProcessParticles):
         output = OpusDsdParticles(filename=self._getFileName('output_txt'),
                                    poses=poses,
                                    ctfs=self._getFileName('output_ctfs'),
-                                   dim=self._getBoxSize() + 1,
+                                   dim=self._getBoxSize(),
                                    samplingRate=self._getSamplingRate())
 
         self._defineOutputs(**{outputs.outputOpusDsdParticles.name: output})
