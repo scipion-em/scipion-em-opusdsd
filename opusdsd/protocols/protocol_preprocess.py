@@ -27,6 +27,7 @@
 # **************************************************************************
 
 import os
+import emtable
 from enum import Enum
 
 import pyworkflow.utils as pwutils
@@ -129,9 +130,44 @@ class OpusDsdProtPreprocess(ProtProcessParticles):
         imgSet = self.inputParticles.get()
         # Create links to binary files and write the relion .star file
         alignType = ALIGN_PROJ if self._inputHasAlign() else ALIGN_NONE
+        starFilename = self._getFileName('input_parts')
         convert.writeSetOfParticles(
-            imgSet, self._getFileName('input_parts'),
-            outputDir=self._getExtraPath(), alignType=alignType)
+            imgSet, starFilename,
+            outputDir=self._getExtraPath(), 
+            alignType=alignType)
+        
+        inStream = open(starFilename, 'r')
+        reader = emtable.metadata._Reader(starFilename)
+        moreDataBlocks = True
+        tables = []
+        tableNames = []
+        while moreDataBlocks:
+            try:
+                tableName = reader._findDataLine(inStream, 
+                                                 'data_').strip().split('_')[1]
+                tableNames.append(tableName)
+                table = emtable.Table()
+                table.read(starFilename, tableName=tableName)
+                tables.append(table)
+            except Exception:
+                moreDataBlocks = False
+        inStream.close()
+
+        outStream = open(starFilename, 'w')
+        writer = emtable.metadata._Writer(outStream)
+        for i, table in enumerate(tables):
+            tableName = tableNames[i]
+            if tableName == 'particles':
+                writer.writeTableName(tableName)
+                writer.writeHeader(table._columns.values())
+                for row in table:
+                    values = [(value) if key!='rlnImageName' 
+                              else (value.split('@')[0] + '@' + os.path.abspath(value.split('@')[1])) 
+                              for (key, value) in row._asdict().items()]
+                    writer.writeRowValues(values)
+            else:
+                table.writeStar(outStream, tableName=tableName)
+        outStream.close()
 
     def runDownSampleStep(self):
         self._runProgram('preprocess', self._getPreprocessArgs())
@@ -197,7 +233,8 @@ class OpusDsdProtPreprocess(ProtProcessParticles):
                 '-o %s ' % os.path.abspath(self._getFileName('output_parts')),
                 '-D %d' % self._getBoxSize(),
                 '--window-r %0.2f' % self.winSize if self.doWindow else '--no-window',
-                '--max-threads %d ' % self.numberOfThreads
+                '--max-threads %d ' % self.numberOfThreads,
+                '--relion31'
                 ]
 
         if not self.doInvert:
@@ -209,14 +246,24 @@ class OpusDsdProtPreprocess(ProtProcessParticles):
         return args
 
     def _getParsePosesArgs(self):
-        args = ['%s ' % self._getFileName('input_parts'),
-                '-o %s ' % self._getFileName('output_poses')]
+        args = ['%s ' % os.path.abspath(self._getFileName('input_parts')),
+                '-o %s ' % os.path.abspath(self._getFileName('output_poses')),
+                '--relion31 ',
+                '-D %s ' % self._getBoxSize(),
+                '--Apix %s' % self.inputParticles.get().getSamplingRate()]
 
         return args
 
     def _getParseCtfArgs(self):
-        args = ['%s ' % self._getFileName('input_parts'),
-                '-o %s ' % self._getFileName('output_ctfs'),
+        acquisition = self.inputParticles.get().getAcquisition()
+        args = ['%s ' % os.path.abspath(self._getFileName('input_parts')),
+                '-o %s ' % os.path.abspath(self._getFileName('output_ctfs')),
+                '--relion31 ',
+                '-D %s ' % self._getBoxSize(),
+                '--Apix %s ' % self.inputParticles.get().getSamplingRate(),
+                '--kv %s ' % acquisition.getVoltage(),
+                '--cs %s ' % acquisition.getSphericalAberration(),
+                '-w %s ' % acquisition.getAmplitudeContrast(),
                 '--ps 0']  # required due to OPUS-DSD parsing bug
 
         return args
