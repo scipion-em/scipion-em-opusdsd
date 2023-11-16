@@ -91,6 +91,11 @@ class OpusDsdProtPreprocess(ProtProcessParticles):
                       label='New box size (px)',
                       help='New box size in pixels, must be even.')
 
+        form.addParam('noKeepReal', params.BooleanParam, default=False,
+                      expertLevel=params.LEVEL_ADVANCED,
+                      label='Turn off real space windowing of dataset?',
+                      help='Please note that this may not be compatible with downstream training')
+
         form.addParam('doWindow', params.BooleanParam, default=True,
                       expertLevel=params.LEVEL_ADVANCED,
                       label="Apply circular mask?")
@@ -215,6 +220,9 @@ class OpusDsdProtPreprocess(ProtProcessParticles):
         if self.chunk > 0:
             args.append('--chunk %d ' % self.chunk)
 
+        if self.noKeepReal:
+            args.append('--no-keep-real')
+
         return args
 
     def _getParsePosesArgs(self):
@@ -227,6 +235,10 @@ class OpusDsdProtPreprocess(ProtProcessParticles):
         return args
 
     def _getParseCtfArgs(self):
+        boxSize = self._getBoxSize()
+        if self.noKeepReal:
+            boxSize += 1
+
         acquisition = self.inputParticles.get().getAcquisition()
         args = ['%s ' % self._getFileName('input_parts'),
                 '-o %s ' % self._getFileName('output_ctfs'),
