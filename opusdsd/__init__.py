@@ -92,7 +92,7 @@ class Plugin(pwem.Plugin):
             cls.getCondaActivationCmd(),
             f'conda env create --name {ENV_NAME} --file environment.yml --force &&',
             f'conda activate {ENV_NAME} &&',
-            'pip install -e .',
+            'pip install -e . &&',
             f'touch {FLAG}'  # Flag installation finished
         ]
 
