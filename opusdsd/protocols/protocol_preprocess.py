@@ -135,39 +135,6 @@ class OpusDsdProtPreprocess(ProtProcessParticles):
             imgSet, starFilename,
             outputDir=self._getExtraPath(), 
             alignType=alignType)
-        
-        inStream = open(starFilename, 'r')
-        reader = emtable.metadata._Reader(starFilename)
-        moreDataBlocks = True
-        tables = []
-        tableNames = []
-        while moreDataBlocks:
-            try:
-                tableName = reader._findDataLine(inStream, 
-                                                 'data_').strip().split('_')[1]
-                tableNames.append(tableName)
-                table = emtable.Table()
-                table.read(starFilename, tableName=tableName)
-                tables.append(table)
-            except Exception:
-                moreDataBlocks = False
-        inStream.close()
-
-        outStream = open(starFilename, 'w')
-        writer = emtable.metadata._Writer(outStream)
-        for i, table in enumerate(tables):
-            tableName = tableNames[i]
-            if tableName == 'particles':
-                writer.writeTableName(tableName)
-                writer.writeHeader(table._columns.values())
-                for row in table:
-                    values = [(value) if key!='rlnImageName' 
-                              else (value.split('@')[0] + '@' + os.path.abspath(value.split('@')[1])) 
-                              for (key, value) in row._asdict().items()]
-                    writer.writeRowValues(values)
-            else:
-                table.writeStar(outStream, tableName=tableName)
-        outStream.close()
 
     def runDownSampleStep(self):
         self._runProgram('preprocess', self._getPreprocessArgs())
@@ -229,8 +196,8 @@ class OpusDsdProtPreprocess(ProtProcessParticles):
 
     # --------------------------- UTILS functions -----------------------------
     def _getPreprocessArgs(self):
-        args = ['%s ' % os.path.abspath(self._getFileName('input_parts')),
-                '-o %s ' % os.path.abspath(self._getFileName('output_parts')),
+        args = ['%s ' % self._getFileName('input_parts'),
+                '-o %s ' % self._getFileName('output_parts'),
                 '-D %d' % self._getBoxSize(),
                 '--window-r %0.2f' % self.winSize if self.doWindow else '--no-window',
                 '--max-threads %d ' % self.numberOfThreads,
@@ -246,8 +213,8 @@ class OpusDsdProtPreprocess(ProtProcessParticles):
         return args
 
     def _getParsePosesArgs(self):
-        args = ['%s ' % os.path.abspath(self._getFileName('input_parts')),
-                '-o %s ' % os.path.abspath(self._getFileName('output_poses')),
+        args = ['%s ' % self._getFileName('input_parts'),
+                '-o %s ' % self._getFileName('output_poses'),
                 '--relion31 ',
                 '-D %s ' % self._getBoxSize(),
                 '--Apix %s' % self.inputParticles.get().getSamplingRate()]
@@ -256,8 +223,8 @@ class OpusDsdProtPreprocess(ProtProcessParticles):
 
     def _getParseCtfArgs(self):
         acquisition = self.inputParticles.get().getAcquisition()
-        args = ['%s ' % os.path.abspath(self._getFileName('input_parts')),
-                '-o %s ' % os.path.abspath(self._getFileName('output_ctfs')),
+        args = ['%s ' % self._getFileName('input_parts'),
+                '-o %s ' % self._getFileName('output_ctfs'),
                 '--relion31 ',
                 '-D %s ' % self._getBoxSize(),
                 '--Apix %s ' % self.inputParticles.get().getSamplingRate(),

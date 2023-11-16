@@ -92,6 +92,7 @@ class Plugin(pwem.Plugin):
             cls.getCondaActivationCmd(),
             f'conda env create --name {ENV_NAME} --file environment.yml --force &&',
             f'conda activate {ENV_NAME} &&',
+            'pip install -e .',
             f'touch {FLAG}'  # Flag installation finished
         ]
 
@@ -99,8 +100,8 @@ class Plugin(pwem.Plugin):
         # keep path since conda likely in there
         installEnvVars = {'PATH': envPath} if envPath else None
 
-        branch = "main"
-        url = "https://github.com/alncat/opusDSD"
+        branch = "pip_installing"
+        url = "https://github.com/jamesmkrieger/opusDSD"
         if os.path.exists(cls.getVar(OPUSDSD_HOME)):
             gitCmds = []
         else:
@@ -127,8 +128,8 @@ class Plugin(pwem.Plugin):
     @classmethod
     def getProgram(cls, program, gpus='0'):
         """ Create Opus-DSD command line. """
-        fullProgram = 'cd %s && %s && CUDA_VISIBLE_DEVICES=%s python -m cryodrgn.commands.%s' % (
-            cls.getVar(OPUSDSD_HOME), cls.getActivationCmd(), gpus, program)
+        fullProgram = '%s && CUDA_VISIBLE_DEVICES=%s python -m cryodrgn.commands.%s' % (
+            cls.getActivationCmd(), gpus, program)
 
         return fullProgram
 
