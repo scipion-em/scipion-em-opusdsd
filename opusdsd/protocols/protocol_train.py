@@ -67,20 +67,20 @@ class OpusDsdProtTrain(OpusDsdProtBase):
                       help='Batch size for processing images')
         
         form.addParam('betaControl', params.FloatParam, default=1., 
-                      label='beta restraint strength for KL target',
+                      label='Beta restraint strength for KL target',
                       expertLevel=params.LEVEL_ADVANCED,
                       help='Beta parameter for beta-VAE that controls the strength of '
                            'to control the strength of the standard Gaussian restraints')
         
         form.addParam('lamb', params.FloatParam, default=1.0, 
-                      label='restraint strength for umap prior',
+                      label='Restraint strength for umap prior',
                       expertLevel=params.LEVEL_ADVANCED,
                       help='This controls the stretch of the UMAP-inspired prior for '
                             'the encoder network that encourages the encoding of structural '
                             'information for images in the same projection class')
         
         form.addParam('bfactor', params.FloatParam, default=4., 
-                      label='bfactor for reconstruction',
+                      label='B-factor for reconstruction',
                       expertLevel=params.LEVEL_ADVANCED)
         
         form.addParam('learningRate', params.FloatParam, default=1.2e-4, 
@@ -89,28 +89,33 @@ class OpusDsdProtTrain(OpusDsdProtBase):
         
         form.addParam('valFrac', params.FloatParam, default=0.2, 
                       expertLevel=params.LEVEL_ADVANCED,
-                      label='validation image fraction',
+                      label='Validation image fraction',
                       help='fraction of images held for validation')
         
         form.addParam('downFrac', params.FloatParam, default=0.5, 
                       expertLevel=params.LEVEL_ADVANCED,
-                      label='downsampling fraction',
+                      label='Downsampling fraction',
                       help='downsample to this fraction of original size')
         
         form.addParam('templateres', params.IntParam, default=192, 
                       expertLevel=params.LEVEL_ADVANCED,
-                      label='output size',
+                      label='Output size',
                       help='define the output size of 3d volume')
         
-        form.addParam('useRefVolume', params.BooleanParam, default=False,
+        form.addParam('useMask', params.BooleanParam, default=False,
                       expertLevel=params.LEVEL_ADVANCED,
                       label="Use a reference volume?")
-        form.addParam('refVolume', params.PointerParam,
-                      pointerClass='Volume,SetOfVolumes',
+        form.addParam('mask', params.PointerParam,
+                      pointerClass='Mask',
                       expertLevel=params.LEVEL_ADVANCED,
-                      condition='useRefVolume',
+                      condition='useMask',
                       label="Reference volume",
-                      help="Input volume")
+                      help="the solvent mask created from consensus model, our program will "
+                            "focus on fitting the contents inside the mask (more specifically, "
+                            "the 2D projection of a 3D mask). Since the majority part of image "
+                            "doesn't contain electron density, using the original image size is "
+                            "wasteful, by specifying a mask, our program will automatically "
+                            "determine a suitable crop rate to keep only the region with densities.")
 
         form.addParam('extraParams', params.StringParam, default="",
                       label="Extra params",
@@ -119,10 +124,6 @@ class OpusDsdProtTrain(OpusDsdProtBase):
 
     # --------------------------- STEPS functions -----------------------------
     def runTrainingStep(self):
-        # Create output folder
-        pwutils.cleanPath(self.getOutputDir())
-        pwutils.makePath(self.getOutputDir())
-
         # Call OPUS-DSD with the appropriate parameters
         self._runProgram('train_cv', self._getTrainingArgs())
 
@@ -132,51 +133,39 @@ class OpusDsdProtTrain(OpusDsdProtBase):
 
         return summary
 
-    def _validate(self):
-        errors = OpusDsdProtBase._validateBase(self)
-
-        if self.inputParticles.get().poses is None:
-            errors.append("Input particles have no poses (alignment)!")
-
-        return errors
-
     # --------------------------- UTILS functions -----------------------------
     def _getTrainingArgs(self):
-        parts = self.inputParticles.get()
-
         args = [
-            parts.filename.get(),
-            '--poses %s' % parts.poses,
-            '--ctf %s' % parts.ctfs,
+            self._getFileName('input_parts'),
+            '--poses %s' % self._getFileName('output_poses'),
+            '--ctf %s' % self._getFileName('output_ctfs'),
             '--zdim %d' % self.zDim,
             '-o %s ' % self.getOutputDir(),
             '-n %d' % self.numEpochs,
-            '--preprocessed',
             '--max-threads %d ' % self.numberOfThreads,
             '--enc-layers %d' % self.qLayers,
             '--enc-dim %d' % self.qDim,
             '--dec-layers %d' % self.pLayers,
             '--dec-dim %d' % self.pDim,
-            '--lazy-single ',
-            '--pe-type vanilla ',
-            '--encode-mode grad ',
-            '--template-type conv ',
+            '--lazy-single',
+            '--pe-type vanilla',
+            '--encode-mode grad',
+            '--template-type conv',
             '-b %s' % self.batchSize.get(),
-            '--lr %s ' % self.learningRate.get(),
-            '--beta-control %s ' % self.betaControl.get(),
-            '--beta cos ',
-            '--downfrac %s ' % self.downFrac.get(),
-            '--valfrac %s ' % self.valFrac.get(),
-            '--lamb %s ' % self.lamb.get(),
-            '--bfactor %s ' % self.bfactor.get(),
-            '--templateres %s ' % self.templateres.get()
+            '--lr %s' % self.learningRate.get(),
+            '--beta-control %s' % self.betaControl.get(),
+            '--beta cos',
+            '--downfrac %s' % self.downFrac.get(),
+            '--valfrac %s' % self.valFrac.get(),
+            '--lamb %s' % self.lamb.get(),
+            '--bfactor %s' % self.bfactor.get(),
+            '--templateres %s' % self.templateres.get(),
+            '--split %s' % self._getExtraPath('sp-split.pkl'),
+            '--relion31'
         ]
 
-        if self.useRefVolume:
-            args.append('-r %s ' % self.refVolume.get().getFileName())
-
-        # if self.doSplit():
-        #     args.append('--split %s ' % self.splitFile.get().getFileName())
+        if self.useMask:
+            args.append('-r %s' % self.mask.get().getFileName())
 
         if len(self.getGpuList()) > 1:
             args.append('--multigpu')

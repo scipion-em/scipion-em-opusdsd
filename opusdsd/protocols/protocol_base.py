@@ -33,9 +33,12 @@ import numpy as np
 import re
 from glob import glob
 
+from pwem.constants import ALIGN_PROJ, ALIGN_NONE
 import pyworkflow.utils as pwutils
 import pyworkflow.protocol.params as params
 import pyworkflow.object as pwobj
+from pyworkflow.plugin import Domain
+
 from pwem.protocols import ProtProcessParticles
 import pwem.objects as emobj
 
@@ -43,6 +46,7 @@ from .. import Plugin
 from ..constants import (EPOCH_LAST, EPOCH_SELECTION, WEIGHTS, CONFIG, 
                          Z_VALUES)
 
+convert = Domain.importFromPlugin('relion.convert', doRaise=True)
 
 class OpusDsdProtBase(ProtProcessParticles):
     _label = None
@@ -58,8 +62,13 @@ class OpusDsdProtBase(ProtProcessParticles):
             'z_values': out('z_values.txt'),
             'z_valuesN': out('kmeans%(ksamples)d/z_values.txt'),
             'weights': self.getOutputDir(f'weights.{self._epoch}.pkl'),
-            'config': self.getOutputDir('config.pkl')
+            'config': self.getOutputDir('config.pkl'),
+            'input_parts': self._getExtraPath('input_particles.star'),
+            'output_folder': out(),
+            'output_poses': self.getOutputDir('poses.pkl'),
+            'output_ctfs': self.getOutputDir('ctfs.pkl'),
         }
+
         self._updateFilenamesDict(myDict)
 
     # --------------------------- DEFINE param functions ----------------------
@@ -75,7 +84,7 @@ class OpusDsdProtBase(ProtProcessParticles):
                             " set to i.e. *0 1 2*.")
 
         form.addParam('inputParticles', params.PointerParam,
-                      pointerClass="OpusDsdParticles",
+                      pointerClass="SetOfParticles",
                       label='OPUS-DSD particles')
 
         form.addParam('zDim', params.IntParam, default=8,
@@ -126,6 +135,8 @@ class OpusDsdProtBase(ProtProcessParticles):
 
     # --------------------------- INSERT steps functions ----------------------
     def _insertAllSteps(self):
+        self._insertFunctionStep(self.convertInputStep)
+        self._insertFunctionStep(self.runParseMdStep)
         self._insertFunctionStep(self.runTrainingStep)
         if self.viewEpoch == EPOCH_LAST:
             self._epoch = self.numEpochs.get() - 1
@@ -136,6 +147,52 @@ class OpusDsdProtBase(ProtProcessParticles):
         self._insertFunctionStep(self.createOutputStep)
 
     # --------------------------- STEPS functions -----------------------------
+    def convertInputStep(self):
+        """ Create a star file as expected by OPUS-DSD."""
+        outputFolder = self._getFileName('output_folder')
+        pwutils.cleanPath(outputFolder)
+        pwutils.makePath(outputFolder)
+
+        imgSet = self.inputParticles.get()
+        # Create links to binary files and write the relion .star file
+        alignType = ALIGN_PROJ if self._inputHasAlign() else ALIGN_NONE
+        starFilename = self._getFileName('input_parts')
+        convert.writeSetOfParticles(
+            imgSet, starFilename,
+            outputDir=self._getExtraPath(), 
+            alignType=alignType)
+        
+    def runParseMdStep(self):
+        self._runProgram('parse_pose_star', self._getParsePosesArgs())
+        self._runProgram('parse_ctf_star', self._getParseCtfArgs())
+
+    def _getParsePosesArgs(self):
+        args = ['%s' % self._getFileName('input_parts'),
+                '-o %s' % self._getFileName('output_poses'),
+                '--relion31',
+                '-D %s' % self._getBoxSize(),
+                '--Apix %s' % self.inputParticles.get().getSamplingRate()]
+        return args
+
+    def _getParseCtfArgs(self):
+        acquisition = self.inputParticles.get().getAcquisition()
+        args = ['%s' % self._getFileName('input_parts'),
+                '-o %s' % self._getFileName('output_ctfs'),
+                '--relion31',
+                '-D %s' % self._getBoxSize(),
+                '--Apix %s' % self.inputParticles.get().getSamplingRate(),
+                '--kv %s' % acquisition.getVoltage(),
+                '--cs %s' % acquisition.getSphericalAberration(),
+                '-w %s' % acquisition.getAmplitudeContrast(),
+                '--ps 0']  # required due to OPUS-DSD parsing bug
+        return args
+
+    def _getInputParticles(self):
+        return self.inputParticles.get()
+
+    def _getBoxSize(self):
+        return self._getInputParticles().getXDim()
+
     def runTrainingStep(self):
         """ Should be implemented in subclasses. """
         raise NotImplementedError
@@ -170,6 +227,15 @@ class OpusDsdProtBase(ProtProcessParticles):
             total = self.numEpochs.get()
             if ep > total:
                 errors.append(f"You can analyse only epochs 1-{total}")
+
+        if self._getBoxSize() % 2 != 0:
+            errors.append("Box size must be even!")
+
+        if not self._inputHasAlign():
+            errors.append("Input particles have no alignment!")
+
+        if self._getBoxSize() < 128:
+            errors.append("OPUS-DSD requires a box size > 128 x 128 pixels.")
 
         return errors
 
@@ -314,3 +380,6 @@ class OpusDsdProtBase(ProtProcessParticles):
 
     def hasMultLatentVars(self):
         return self.zDim > 1
+
+    def _inputHasAlign(self):
+        return self._getInputParticles().hasAlignmentProj()
