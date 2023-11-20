@@ -73,7 +73,7 @@ class TestOpusDsd(BaseTest):
         cls.dataset = DataSet.getDataSet('relion_tutorial')
         cls.partFn = cls.dataset.getFile('import/refine3d_case2/relion_data.star')
         cls.protImport = cls.runImportParticlesStar(cls.partFn, 50000, 3.54)
-        cls.upsample = cls.runUpsampleParticles(cls.protImport.outputParticles)
+        #cls.upsample = cls.runUpsampleParticles(cls.protImport.outputParticles)
 
     def checkTrainingOutput(self, trainingProt):
         output = getattr(trainingProt, 'Particles', None)
@@ -84,8 +84,8 @@ class TestOpusDsd(BaseTest):
 
     def testTraining(self):
         print(magentaStr("\n==> Testing OPUS-DSD - training:"))
-        protTrain = self.newProtocol(OpusDsdProtTrain, numEpochs=3, zDim=2,
+        protTrain = self.newProtocol(OpusDsdProtTrain, numEpochs=3, zDim=12,
                                      downFrac=1.)
-        protTrain.inputParticles.set(self.upsample.outputParticles)
+        protTrain.inputParticles.set(self.protImport.outputParticles)
         self.launchProtocol(protTrain)
         self.checkTrainingOutput(protTrain)
