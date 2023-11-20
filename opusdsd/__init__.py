@@ -126,10 +126,15 @@ class Plugin(pwem.Plugin):
                           cls.getOpusDsdEnvActivation())
 
     @classmethod
-    def getProgram(cls, program, gpus='0'):
+    def getProgram(cls, program, gpus='0', fromCryodrgn=True):
         """ Create Opus-DSD command line. """
-        fullProgram = '%s && CUDA_VISIBLE_DEVICES=%s python -m cryodrgn.commands.%s' % (
-            cls.getActivationCmd(), gpus, program)
+
+        fullProgram = '%s && CUDA_VISIBLE_DEVICES=%s ' % (cls.getActivationCmd(), gpus)
+
+        if fromCryodrgn:
+            fullProgram += 'python -m cryodrgn.commands.%s' % program
+        else:
+            fullProgram += 'sh %s/%s.sh' % (cls.getVar(OPUSDSD_HOME), program)
 
         return fullProgram
 

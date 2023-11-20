@@ -62,7 +62,7 @@ class OpusDsdProtTrain(OpusDsdProtBase):
         group.addParam('pDim', params.IntParam, default=1024,
                        label='Number of nodes in hidden layers')
 
-        form.addParam('batchSize', params.IntParam, default=5000, 
+        form.addParam('batchSize', params.IntParam, default=20, 
                       label='Batch size', expertLevel=params.LEVEL_ADVANCED,
                       help='Batch size for processing images')
         
@@ -142,30 +142,27 @@ class OpusDsdProtTrain(OpusDsdProtBase):
             '--zdim %d' % self.zDim,
             '-o %s ' % self.getOutputDir(),
             '-n %d' % self.numEpochs,
-            '--max-threads %d ' % self.numberOfThreads,
-            '--enc-layers %d' % self.qLayers,
-            '--enc-dim %d' % self.qDim,
-            '--dec-layers %d' % self.pLayers,
-            '--dec-dim %d' % self.pDim,
             '--lazy-single',
             '--pe-type vanilla',
             '--encode-mode grad',
             '--template-type conv',
-            '-b %s' % self.batchSize.get(),
-            '--lr %s' % self.learningRate.get(),
-            '--beta-control %s' % self.betaControl.get(),
+            '-b %s' % self.batchSize,
+            '--lr %s' % self.learningRate,
+            '--beta-control %s' % self.betaControl,
             '--beta cos',
-            '--downfrac %s' % self.downFrac.get(),
-            '--valfrac %s' % self.valFrac.get(),
-            '--lamb %s' % self.lamb.get(),
-            '--bfactor %s' % self.bfactor.get(),
-            '--templateres %s' % self.templateres.get(),
+            '--downfrac %s' % self.downFrac,
+            '--valfrac %s' % self.valFrac,
+            '--lamb %s' % self.lamb,
+            '--bfactor %s' % self.bfactor,
+            '--templateres %s' % self.templateres,
             '--split %s' % self._getExtraPath('sp-split.pkl'),
-            '--relion31'
         ]
 
         if self.useMask:
             args.append('-r %s' % self.mask.get().getFileName())
+
+        if self.relion31:
+            args.append('--relion31')
 
         if len(self.getGpuList()) > 1:
             args.append('--multigpu')

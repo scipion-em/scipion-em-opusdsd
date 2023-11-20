@@ -46,6 +46,9 @@ from .. import Plugin
 from ..constants import (EPOCH_LAST, EPOCH_SELECTION, WEIGHTS, CONFIG, 
                          Z_VALUES)
 
+KMEANS = 0
+PCS = 1
+
 convert = Domain.importFromPlugin('relion.convert', doRaise=True)
 
 class OpusDsdProtBase(ProtProcessParticles):
@@ -58,9 +61,11 @@ class OpusDsdProtBase(ProtProcessParticles):
 
         myDict = {
             'output_vol': out('vol_%(id)03d.mrc'),
-            'output_volN': out('kmeans%(ksamples)d/vol_%(id)03d.mrc'),
+            'output_volN_km': out('kmeans%(ksamples)d/reference%(id)d.mrc'),
+            'output_volN_pc': out('pc%(i)d/reference%(id)d.mrc'),
             'z_values': out('z_values.txt'),
-            'z_valuesN': out('kmeans%(ksamples)d/z_values.txt'),
+            'z_valuesN_km': out('kmeans%(ksamples)d/centers.txt'),
+            'z_valuesN_pc': out('pc%(i)d/z_pc.txt'),
             'weights': self.getOutputDir(f'weights.{self._epoch}.pkl'),
             'config': self.getOutputDir('config.pkl'),
             'input_parts': self._getExtraPath('input_particles.star'),
@@ -82,12 +87,21 @@ class OpusDsdProtBase(ProtProcessParticles):
                             " First core index is 0, second 1 and so on."
                             " You can use multiple GPUs - in that case"
                             " set to i.e. *0 1 2*.")
+        
+        form.addParam('doTraining', params.BooleanParam, default=True,
+                      expertLevel=params.LEVEL_ADVANCED,
+                      label="Do full training?",
+                      help='The alternative is to analyze a previous results from a previous training job')
+        
+        form.addParam('relion31', params.BooleanParam, default=True,
+                      expertLevel=params.LEVEL_ADVANCED,
+                      label="Are particles from RELION 3.1 or later?")
 
         form.addParam('inputParticles', params.PointerParam,
                       pointerClass="SetOfParticles",
                       label='OPUS-DSD particles')
 
-        form.addParam('zDim', params.IntParam, default=8,
+        form.addParam('zDim', params.IntParam, default=12,
                       validators=[params.Positive],
                       label='Dimension of latent variable',
                       help='It is recommended to first train on lower '
@@ -117,6 +131,10 @@ class OpusDsdProtBase(ProtProcessParticles):
         form.addParam('epochNum', params.IntParam,
                       condition='viewEpoch==%d' % EPOCH_SELECTION,
                       label="Epoch number")
+        
+        form.addParam('numPCs', params.IntParam, default=4,
+                      label='Number of principal components',
+                      help='Number of principal components to sample for traversal')
 
         form.addParam('ksamples', params.IntParam, default=20,
                       label='Number of K-means samples to generate',
@@ -126,6 +144,10 @@ class OpusDsdProtBase(ProtProcessParticles):
                            "density map from the center of each of these "
                            "regions. The goal is to provide a tractable number "
                            "of representative density maps to visually inspect. ")
+        
+        form.addParam('outApix', params.FloatParam, default=-1, 
+                      label='Pixel size in A for output volumes',
+                      help='If left at -1, the default behaviour is to use the input sampling rate')  
 
         form.addParallelSection(threads=16, mpi=0)
 
@@ -135,15 +157,20 @@ class OpusDsdProtBase(ProtProcessParticles):
 
     # --------------------------- INSERT steps functions ----------------------
     def _insertAllSteps(self):
-        self._insertFunctionStep(self.convertInputStep)
-        self._insertFunctionStep(self.runParseMdStep)
-        self._insertFunctionStep(self.runTrainingStep)
         if self.viewEpoch == EPOCH_LAST:
             self._epoch = self.numEpochs.get() - 1
         else:
             self._epoch = self.epochNum.get()
         self._createFilenameTemplates()
-        self._insertFunctionStep(self.runAnalysisStep, self._epoch)
+
+        if self.doTraining:
+            self._insertFunctionStep(self.convertInputStep)
+            self._insertFunctionStep(self.runParseMdStep)
+            self._insertFunctionStep(self.runTrainingStep)
+            self._insertFunctionStep(self.runAnalysisStep, self._epoch)
+
+        self._insertFunctionStep(self.runEvalVolumesStep, self._epoch)
+        #self._insertFunctionStep(self.runEvalPartsStep, self._epoch)
         self._insertFunctionStep(self.createOutputStep)
 
     # --------------------------- STEPS functions -----------------------------
@@ -169,22 +196,26 @@ class OpusDsdProtBase(ProtProcessParticles):
     def _getParsePosesArgs(self):
         args = ['%s' % self._getFileName('input_parts'),
                 '-o %s' % self._getFileName('output_poses'),
-                '--relion31',
                 '-D %s' % self._getBoxSize(),
                 '--Apix %s' % self.inputParticles.get().getSamplingRate()]
+        
+        if self.relion31:
+            args.append('--relion31')
         return args
 
     def _getParseCtfArgs(self):
         acquisition = self.inputParticles.get().getAcquisition()
         args = ['%s' % self._getFileName('input_parts'),
                 '-o %s' % self._getFileName('output_ctfs'),
-                '--relion31',
                 '-D %s' % self._getBoxSize(),
                 '--Apix %s' % self.inputParticles.get().getSamplingRate(),
                 '--kv %s' % acquisition.getVoltage(),
                 '--cs %s' % acquisition.getSphericalAberration(),
                 '-w %s' % acquisition.getAmplitudeContrast(),
                 '--ps 0']  # required due to OPUS-DSD parsing bug
+
+        if self.relion31:
+            args.append('--relion31')
         return args
 
     def _getInputParticles(self):
@@ -202,19 +233,48 @@ class OpusDsdProtBase(ProtProcessParticles):
         Args:
             epoch: epoch number to be analyzed.
         """
-        self._runProgram('analyze', self._getAnalyzeArgs(epoch))
+        self._runProgram('analyze', self._getAnalyzeArgs(epoch), 
+                         fromCryodrgn=False)
+        
+    def runEvalVolumesStep(self, epoch):
+        """ Run eval vol step.
+        Args:
+            epoch: epoch number to be analyzed.
+        """
+        # eval vol for Kmeans then each PC
+        self._runProgram('eval_vol', self._getEvalVolArgs(epoch), 
+                        fromCryodrgn=False)
+    
+        # for i in range(1, self.numPCs.get()+1):
+        #     self._runProgram('eval_vol', self._getEvalVolArgs(epoch, i, 
+        #                                                       sampleMode=PCS), 
+        #                     fromCryodrgn=False)
+
+    def runEvalPartsStep(self, epoch):
+        """ Run eval parts step.
+        Args:
+            epoch: epoch number to be analyzed.
+        """
+        # eval particles for Kmeans then each PC
+        self._runProgram('parse_pose', self._getEvalVolArgs(epoch), 
+                        fromCryodrgn=False)
+
+        for i in range(1, self.numPCs.get()+1):
+            self._runProgram('parse_pose', self._getEvalVolArgs(epoch, i, 
+                                                                sampleMode=PCS), 
+                             fromCryodrgn=False)
 
     def createOutputStep(self):
         """ Create the protocol outputs. """
         # Creating a set of particles with z_values
-        outImgSet = self._createParticleSet()
-        self._defineOutputs(Particles=outImgSet)
+        #outImgSet = self._createParticleSet()
+        #self._defineOutputs(Particles=outImgSet)
 
-        # Creating a set of volumes with z_values
+        # Creating a set of volumes with z_values for first Kmeans and then each PC
         fn = self._getExtraPath('volumes.sqlite')
-        samplingRate = self.inputParticles.get().getSamplingRate()
         files, zValues = self._getVolumes()
-        setOfVolumes = self._createVolumeSet(files, zValues, fn, samplingRate)
+        files, zValues = self._getVolumes(sampleMode=PCS, vols=files, zValues=zValues)
+        setOfVolumes = self._createVolumeSet(files, zValues, fn, self.samplingRate)
         self._defineOutputs(Volumes=setOfVolumes)
         self._defineSourceRelation(self.inputParticles.get(), setOfVolumes)
 
@@ -243,43 +303,79 @@ class OpusDsdProtBase(ProtProcessParticles):
     def _getAnalyzeArgs(self, epoch):
         return [
             self.getOutputDir(),
-            f"{epoch}",
-            '--Apix %0.3f' % self.inputParticles.get().getSamplingRate(),
-            '--ksample %d' % self.ksamples,
+            '%d' % epoch,
+            '%d' % self.numPCs.get(),
+            '%d' % self.ksamples,
         ]
+    
+    def _getEvalVolArgs(self, epoch, i=None, sampleMode=KMEANS):
+        if self.outApix == -1:
+            self.samplingRate = params.Float(self.inputParticles.get().getSamplingRate())
+        else:
+            self.samplingRate = params.Float(self.outApix)
 
-    def _runProgram(self, program, args):
+        if sampleMode == KMEANS:
+            return [
+                self.getOutputDir(),
+                '%d' % epoch,
+                '%d' % self.ksamples,
+                '%4.2f' % self.samplingRate,
+                'kmeans'
+            ]
+        else:
+            return [
+                self.getOutputDir(),
+                '%d' % epoch,
+                '%d' % i,
+                '%4.2f' % self.samplingRate,
+                'pc'
+            ]
+
+    def _runProgram(self, program, args, fromCryodrgn=True):
         gpus = ','.join(str(i) for i in self.getGpuList())
-        self.runJob(Plugin.getProgram(program, gpus), ' '.join(args))
+        self.runJob(Plugin.getProgram(program, gpus, 
+                                      fromCryodrgn=fromCryodrgn), ' '.join(args))
 
-    def _getVolumes(self):
+    def _getVolumes(self, sampleMode=KMEANS, vols=None, zValues=None):
         """ Returns a list of volume names and their zValues. """
-        vols = []
+        if vols is None:
+            vols = []
+
+        if zValues is None:
+            zValues = []
+
         if self.hasMultLatentVars():
-            fn = 'output_volN'
-            num = self.ksamples.get()
-            zValue = 'z_valuesN'
-            zValues = self._getVolumeZvalues(self._getFileName(zValue,
-                                                               ksamples=num))
+            if sampleMode == KMEANS:
+                fn = 'output_volN_km'
+                num = self.ksamples.get()
+                zValue = 'z_valuesN_km'
+                zValues.extend(self._getVolumeZvalues(self._getFileName(zValue, ksamples=num)))
+            else:
+                fn = 'output_volN_pc'
+                num = 10
+                zValue = 'z_valuesN_pc'
+                for i in range(1, self.numPCs.get()+1):
+                    zValues.extend(self._getVolumeZvalues(self._getFileName(zValue, i=i)))
         else:
             fn = 'output_vol'
             num = 10
             zValue = 'z_values'
-            zValues = self._getVolumeZvalues(self._getFileName(zValue))
+            zValues.extend(self._getVolumeZvalues(self._getFileName(zValue)))
 
         for volId in range(num):
             if self.hasMultLatentVars():
-                volFn = self._getFileName(fn, ksamples=num, epoch=self._epoch,
-                                          id=volId)
+                if sampleMode == KMEANS:
+                    volFn = self._getFileName(fn, ksamples=num, epoch=self._epoch,
+                                              id=volId)
+                    vols = self._appendVolumes(vols, volFn)
+                else:
+                    for i in range(1, self.numPCs.get()+1):
+                        volFn = self._getFileName(fn, i=i, epoch=self._epoch,
+                                                  id=volId)
+                        vols = self._appendVolumes(vols, volFn)
             else:
                 volFn = self._getFileName(fn, epoch=self._epoch, id=volId)
-
-            if os.path.exists(volFn):
-                vols.append(volFn)
-            else:
-                raise FileNotFoundError("Volume %s does not exists. \n"
-                                        "Please select a valid epoch "
-                                        "number." % volFn)
+                vols = self._appendVolumes(vols, volFn)
 
         return vols, zValues
 
@@ -298,8 +394,7 @@ class OpusDsdProtBase(ProtProcessParticles):
         Create a set of particles with the associated z_values
         :return: a set of particles
         """
-        cryoDRGParticles = self.inputParticles.get()
-        inImgSet = self.getProject().getProtocol(cryoDRGParticles.getObjParentId()).inputParticles.get()
+        inImgSet = self.inputParticles.get()
         zValues = iter(self._getParticlesZvalues())
         outImgSet = self._createSetOfParticles()
         outImgSet.copyInfo(inImgSet)
@@ -383,3 +478,12 @@ class OpusDsdProtBase(ProtProcessParticles):
 
     def _inputHasAlign(self):
         return self._getInputParticles().hasAlignmentProj()
+
+    def _appendVolumes(self, vols, volFn):
+        if os.path.exists(volFn):
+            vols.append(volFn)
+        else:
+            raise FileNotFoundError("Volume %s does not exists. \n"
+                                    "Please select a valid epoch "
+                                    "number." % volFn)
+        return vols
