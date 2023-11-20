@@ -104,13 +104,13 @@ class OpusDsdProtTrain(OpusDsdProtBase):
         
         form.addParam('useMask', params.BooleanParam, default=False,
                       expertLevel=params.LEVEL_ADVANCED,
-                      label="Use a reference volume?")
+                      label="Use a mask?")
         form.addParam('mask', params.PointerParam,
                       pointerClass='Mask',
                       expertLevel=params.LEVEL_ADVANCED,
                       condition='useMask',
-                      label="Reference volume",
-                      help="the solvent mask created from consensus model, our program will "
+                      label="Mask",
+                      help="The suggestion is to use a solvent mask created from consensus model. The program will "
                             "focus on fitting the contents inside the mask (more specifically, "
                             "the 2D projection of a 3D mask). Since the majority part of image "
                             "doesn't contain electron density, using the original image size is "
