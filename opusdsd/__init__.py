@@ -100,8 +100,8 @@ class Plugin(pwem.Plugin):
         # keep path since conda likely in there
         installEnvVars = {'PATH': envPath} if envPath else None
 
-        branch = "temp"
-        url = "https://github.com/jamesmkrieger/opusDSD"
+        branch = "main"
+        url = "https://github.com/alncat/opusDSD"
         if os.path.exists(cls.getVar(OPUSDSD_HOME)):
             gitCmds = []
         else:
