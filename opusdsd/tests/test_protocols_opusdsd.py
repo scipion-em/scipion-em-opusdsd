@@ -53,34 +53,13 @@ class TestOpusDsd(BaseTest):
         return protImport
     
     @classmethod
-    def runImportVolumes(cls, pattern, samplingRate):
-        """ Run an Import volumes protocol. """
-        print(magentaStr("\n==> Importing data - volume from file:"))
-        protImport = cls.newProtocol(ProtImportVolumes,
-                                     filesPath=pattern,
-                                     samplingRate=samplingRate)
-        cls.launchProtocol(protImport)
-        return protImport
-    
-    @classmethod
-    def runResizeParticles(cls, parts, dim):
-        """ Run a resize particles protocol. """
-        print(magentaStr("\n==> Resizing particles:"))
+    def runResizeParticles(cls, parts):
+        """ Import particles from Relion star file. """
+        print(magentaStr("\n==> Importing data - particles from star:"))
         protResize = cls.newProtocol(XmippProtCropResizeParticles,
                                      inputParticles=parts, doResize=True,
                                      resizeOption=XmippResizeHelper.RESIZE_DIMENSIONS,
-                                     resizeDim=dim)
-        cls.launchProtocol(protResize)
-        return protResize
-    
-    @classmethod
-    def runResizeVolumes(cls, vols, dim):
-        """ Run a resize volumes protocol. """
-        print(magentaStr("\n==> Resizing volume:"))
-        protResize = cls.newProtocol(XmippProtCropResizeVolumes,
-                                     inputVolumes=vols, doResize=True,
-                                     resizeOption=XmippResizeHelper.RESIZE_DIMENSIONS,
-                                     resizeDim=dim)
+                                     resizeDim=64)
         cls.launchProtocol(protResize)
         return protResize
 
@@ -88,17 +67,9 @@ class TestOpusDsd(BaseTest):
     def setUpClass(cls):
         setupTestProject(cls)
         cls.dataset = DataSet.getDataSet('relion_tutorial')
-        cls.partFn = cls.dataset.getFile('import/refine3d/extra/relion_data.star')
-        cls.protImportParts = cls.runImportParticlesStar(cls.partFn, 50000, 3.0)
-
-        cls.ds = DataSet.getDataSet('relion_tutorial')
-        cls.volFn = cls.ds.getFile('import/refine3d/extra/relion_class001.mrc')
-        cls.protImportVol = cls.runImportVolumes(cls.volFn, 3.0)
-
-        cls.protResizeParts = cls.runResizeParticles(cls.protImportParts.outputParticles, 64)
-        cls.protResizeVols = cls.runResizeVolumes(cls.protImportVol.outputVolume, 64)
-
-        cls.protMask = cls.runCreateMask(cls.protResizeVols.outputVol)
+        cls.partFn = cls.dataset.getFile('import/refine3d_case2/relion_data.star')
+        cls.protImport = cls.runImportParticlesStar(cls.partFn, 50000, 3.54)
+        cls.protResize = cls.runResizeParticles(cls.protImport.outputParticles)
 
     def checkTrainingOutput(self, trainingProt):
         output = getattr(trainingProt, 'Particles', None)
@@ -110,9 +81,8 @@ class TestOpusDsd(BaseTest):
     def testTraining(self):
         print(magentaStr("\n==> Testing OPUS-DSD - training:"))
         protTrain = self.newProtocol(OpusDsdProtTrain, numEpochs=3, zDim=12,
-                                     downFrac=1., useMask=True)
-        protTrain.inputParticles.set(self.protResizeParts.outputParticles)
-        protTrain.mask.set(self.maskProt.outputMask)
+                                     downFrac=1.)
+        protTrain.inputParticles.set(self.protResize.outputParticles)
         self.launchProtocol(protTrain)
         #self.checkTrainingOutput(protTrain)
 
