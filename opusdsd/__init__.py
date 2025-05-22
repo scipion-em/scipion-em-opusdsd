@@ -42,7 +42,12 @@ _logo = "cryodrgn_logo.png"
 class Plugin(pwem.Plugin):
     _url = "https://github.com/scipion-em/scipion-em-opusdsd"
     _supportedVersions = VERSIONS
+    _name = 'opusdsd'
 
+    @classmethod
+    def getPluginName(cls):
+        return cls._name
+    
     @classmethod
     def _defineVariables(cls):
         cls._defineVar(OPUSDSD_ENV_ACTIVATION, DEFAULT_ACTIVATION_CMD)
