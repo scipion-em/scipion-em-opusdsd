@@ -31,6 +31,7 @@ version = {attr = "opusdsd.__version__"}
 
 [tool.setuptools.package-data]
 "opusdsd" = ['cryodrgn_logo.png', 'protocols.conf']
+dependencies = {file = ["requirements.txt"]}
 
 [project.entry-points."pyworkflow.plugin"]
 opusdsd = "opusdsd"
