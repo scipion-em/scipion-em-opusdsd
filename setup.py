@@ -207,4 +207,4 @@ setup(
     entry_points={
         'pyworkflow.plugin': 'opusdsd = opusdsd'
     }
-)
+)"""
