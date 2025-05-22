@@ -28,10 +28,10 @@ Issues = "https://github.com/scipion-em/scipion-em-opusdsd/issues"
 
 [tool.setuptools.dynamic]
 version = {attr = "opusdsd.__version__"}
+dependencies = {file = ["requirements.txt"]}
 
 [tool.setuptools.package-data]
 "opusdsd" = ['cryodrgn_logo.png', 'protocols.conf']
-dependencies = {file = ["requirements.txt"]}
 
 [project.entry-points."pyworkflow.plugin"]
 opusdsd = "opusdsd"
