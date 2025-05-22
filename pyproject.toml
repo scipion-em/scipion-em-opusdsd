@@ -24,7 +24,7 @@ keywords = ['scipion electron-microscopy cryo-em structural-biology image-proces
 
 [project.urls]
 Homepage = "https://github.com/scipion-em/scipion-em-opusdsd"
-Bug Reports = "https://github.com/scipion-em/scipion-em-opusdsd/issues"
+Issues = "https://github.com/scipion-em/scipion-em-opusdsd/issues"
 
 [tool.setuptools.dynamic]
 version = {attr = "opusdsd.__version__"}
