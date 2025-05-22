@@ -1,0 +1,37 @@
+[build-system]
+requires = ["setuptools", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "scipion-em-opusdsd"
+dynamic = ["version", "dependencies"]
+description = "Plugin to use Opus-DSD within the Scipion framework"
+authors = [
+    {name = "James Krieger", email = "jamesmkrieger@gmail.com"}
+]
+requires-python = ">=3.8"
+readme = "README.rst"
+license = {text = "GNU General Public License v3 (GPLv3)"}
+classifiers = [
+    #   3 - Alpha
+    #   4 - Beta
+    #   5 - Production/Stable
+    "Development Status :: 4 - Production/Stable",
+    "License :: OSI Approved :: GNU General Public License v3 (GPLv3)",
+    "Programming Language :: Python :: 3",
+]
+keywords = ['scipion electron-microscopy cryo-em structural-biology image-processing scipion-3.0']
+
+[project.urls]
+Homepage = "https://github.com/scipion-em/scipion-em-opusdsd"
+Bug Reports = "https://github.com/scipion-em/scipion-em-opusdsd/issues"
+
+[tool.setuptools.dynamic]
+version = {attr = "opusdsd.__version__"}
+dependencies = {file = ["requirements.txt"]}
+
+[tool.setuptools.package-data]
+"opusdsd" = ['cryodrgn_logo.png', 'protocols.conf']
+
+[project.entry-points."pyworkflow.plugin"]
+opusdsd = "opusdsd"
