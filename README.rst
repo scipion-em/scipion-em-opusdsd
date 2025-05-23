@@ -60,7 +60,7 @@ Protocols
 ----------
 
 * preprocess
-* training VAE
+* training CV
 * training ab initio
 
 References

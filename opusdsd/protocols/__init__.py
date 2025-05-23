@@ -26,5 +26,4 @@
 # *
 # **************************************************************************
 
-from .protocol_preprocess import OpusDsdProtPreprocess
 from .protocol_train import OpusDsdProtTrain
