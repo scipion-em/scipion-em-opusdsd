@@ -41,7 +41,7 @@ DEFAULT_ACTIVATION_CMD = 'conda activate ' + DEFAULT_ENV_NAME
 OPUSDSD_ENV_ACTIVATION = 'OPUSDSD_ENV_ACTIVATION'
 
 # Viewer constants
-EPOCH_LAST = 0
+EPOCH_PENULTIMATE = 0
 EPOCH_SELECTION = 1
 
 VOLUME_SLICES = 0
@@ -55,3 +55,6 @@ CONFIG = "_opusdsdConfig"
 # ab initio type
 AB_INITIO_HOMO = 0
 AB_INITIO_HETERO = 1
+
+# FlexHub program
+OPUSDSD = "Opus-DSD"
