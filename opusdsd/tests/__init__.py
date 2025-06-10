@@ -26,4 +26,4 @@
 # *
 # **************************************************************************
 
-from .test_protocols_opusdsd import TestOpusDsd
+from .test_opusdsd import TestOpusDsd
