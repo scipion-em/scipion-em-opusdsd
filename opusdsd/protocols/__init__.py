@@ -26,4 +26,5 @@
 # *
 # **************************************************************************
 
-from .protocol_train import OpusDsdProtTrain
+from .protocol_training import OpusDsdProtTrain
+from .protocol_analyze import OpusDsdProtAnalyze
