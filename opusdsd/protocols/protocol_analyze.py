@@ -39,7 +39,6 @@ import pyworkflow.object as pwobj
 from pyworkflow.plugin import Domain
 from pyworkflow.constants import PROD
 
-from xmipp_metadata.metadata import XmippMetaData
 from xmipp_metadata.image_handler import ImageHandler
 
 from pwem.protocols import ProtProcessParticles, ProtFlexBase

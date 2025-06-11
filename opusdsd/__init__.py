@@ -92,7 +92,7 @@ class Plugin(pwem.Plugin):
             cls.getCondaActivationCmd(),
             f'conda env create --name {ENV_NAME} --file environment.yml --yes &&',
             f'conda activate {ENV_NAME} &&',
-            'pip install -e . &&'
+            'pip install -e . &&',
             'pip install numpy<=1.22 &&',
             f'touch {FLAG}'  # Flag installation finished
         ]

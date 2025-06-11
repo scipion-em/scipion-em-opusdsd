@@ -40,9 +40,7 @@ import pwem.objects.data_flexhub as pwobjflex
 from pyworkflow.plugin import Domain
 from pyworkflow.constants import PROD
 
-from xmipp_metadata.metadata import XmippMetaData
 from xmipp_metadata.image_handler import ImageHandler
-from xmipp3.convert import readSetOfParticles, writeSetOfParticles
 
 from pwem.protocols import ProtProcessParticles, ProtFlexBase
 import pwem.objects as emobj
