@@ -49,11 +49,6 @@ from .protocol_analyze import OpusDsdProtAnalyze
 from .. import Plugin
 from ..constants import *
 
-KMEANS = 0
-PCS = 1
-PREPROCESS = True
-ANALYSIS = False
-
 convertR = Domain.importFromPlugin('relion.convert', doRaise=True)
 
 class OpusDsdProtTrain(ProtProcessParticles, ProtFlexBase):
@@ -66,7 +61,7 @@ class OpusDsdProtTrain(ProtProcessParticles, ProtFlexBase):
     def _createFilenameTemplates(self):
         """ Centralize how files are called within the protocol. """
         myDict = {
-            'input_parts': self._getExtra('output_images.star'),
+            'input_parts': self._getExtra('input_particles.star'),
             'input_volume': self._getExtra('input_volume.mrc'),
             'output_poses': self._getExtra('poses.pkl'),
             'output_ctfs': self._getExtra('ctfs.pkl'),
@@ -186,6 +181,11 @@ class OpusDsdProtTrain(ProtProcessParticles, ProtFlexBase):
                       label='Batch size',
                       expertLevel=params.LEVEL_ADVANCED,
                       help='Batch size for processing images.')
+
+        form.addParam('weightDecay', params.FloatParam, default=0.0,
+                      label='Weight Decay',
+                      expertLevel=params.LEVEL_ADVANCED,
+                      help='Weight decay in Adam optimizer.')
 
         form.addParam('betaControl', params.FloatParam, default=0.5,
                       label='Beta restraint strength for KL target',
@@ -310,14 +310,13 @@ class OpusDsdProtTrain(ProtProcessParticles, ProtFlexBase):
     def runTrainingStep(self):
         # Call OPUS-DSD with the appropriate parameters
         epoch = self.numEpochs.get() - 2
+        inputParticles = self._getFileName('input_parts')
 
         if self.abInitio:
-            inputParticles = self._getExtra('input/*.mrcs')
             outputPoses = self._getExtra('poses.pkl')
         else:
             pwutils.cleanPath(self._getExtra())
             shutil.copytree(self._getFileName('workAnalysisDir'), self._getExtra())
-            inputParticles = self._getExtra('input/*.mrcs')
             outputPoses = self._getExtra('CVResults.%d/pose.%d.pkl') % (epoch, epoch)
 
         args = inputParticles
@@ -343,6 +342,7 @@ class OpusDsdProtTrain(ProtProcessParticles, ProtFlexBase):
 
         args += '--split %s ' % self._getExtra('sp-split.pkl')
         args += '--valfrac %f ' % self.valFrac
+        args += '--verbose '
 
         if self.relion31:
             args += '--relion31 '
@@ -350,6 +350,10 @@ class OpusDsdProtTrain(ProtProcessParticles, ProtFlexBase):
         args += '--lazy-single '
         args += '--num-epochs %d ' % self.numEpochs
         args += '--batch-size %d ' % self.batchSize
+
+        if self.weightDecay.get() != 0:
+            args += '--wd %f ' % self.weightDecay
+
         args += '--lr %f ' % self.learningRate
         args += '--lamb %f ' % self.lamb
         args += '--downfrac %f ' % self.downFrac
@@ -436,13 +440,13 @@ class OpusDsdProtTrain(ProtProcessParticles, ProtFlexBase):
             os.makedirs(outputFolder, exist_ok=True)
             outpose = f'{output}/pose.{i}.pkl'
             if os.path.exists(outpose):
-                shutil.move(outpose, os.path.join(outputFolder, f'pose.{i}.pkl'))
+                shutil.copytree(outpose, os.path.join(outputFolder, f'pose.{i}.pkl'))
             outz = f'{output}/z.{i}.pkl'
             if os.path.exists(outz):
-                shutil.move(outz, os.path.join(outputFolder, f'z.{i}.pkl'))
+                shutil.copytree(outz, os.path.join(outputFolder, f'z.{i}.pkl'))
             outweights = f'{output}/weights.{i}.pkl'
             if os.path.exists(outweights):
-                shutil.move(outweights, os.path.join(outputFolder, f'weights.{i}.pkl'))
+                shutil.copytree(outweights, os.path.join(outputFolder, f'weights.{i}.pkl'))
 
     def _getOpusDSDAnalysisProtocol(self):
         return self.opusDSDAnalysisProtocol.get()
