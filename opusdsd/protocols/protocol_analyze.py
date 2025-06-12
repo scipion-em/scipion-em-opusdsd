@@ -47,9 +47,6 @@ import pwem.objects as emobj
 from .. import Plugin
 from ..constants import *
 
-KMEANS = 0
-PCS = 1
-
 class OpusDsdProtAnalyze(ProtProcessParticles,ProtFlexBase):
     """
     Protocol to analyze results from OPUS-DSD neural network.
@@ -228,8 +225,8 @@ class OpusDsdProtAnalyze(ProtProcessParticles,ProtFlexBase):
     def runAnalysisStep(self):
         """ Call OPUS-DSD with the appropriate parameters to analyze """
         pwutils.cleanPath(self._getExtra())
-        shutil.move(self._getFileName('workTrainDir'), self._getExtra())
-        shutil.move(self._getExtra() + '/run.log', self._getWorkDir() + '/run.log')
+        shutil.copytree(self._getFileName('workTrainDir'), self._getExtra())
+        shutil.copytree(self._getExtra() + '/run.log', self._getWorkDir() + '/run.log')
         poseDir = self._getWorkDir() + f'/pose.{self._getEpoch()}.pkl'
 
         args = self._getWorkDir()
