@@ -40,11 +40,6 @@ from xmipp3.protocols import (XmippProtCropResizeParticles, XmippResizeHelper,
 from ..protocols import OpusDsdProtTrain, OpusDsdProtAnalyze
 from ..constants import *
 
-KMEANS = 0
-PCS = 1
-PREPROCESS = True
-ANALYSIS = False
-
 class TestOpusDsd(BaseTest):
     @classmethod
     def runImportParticlesStar(cls, partStar, mag, samplingRate):
@@ -119,7 +114,7 @@ class TestOpusDsd(BaseTest):
         print(magentaStr("\n==> Testing OPUS-DSD - Training Ab-Initio:"))
         protTrain = self.newProtocol(OpusDsdProtTrain,
                                      abInitio=PREPROCESS,
-                                     numEpochs=3,
+                                     numEpochs=50,
                                      zDim=4)
         protTrain.inputParticles.set(self.protResizePart.outputParticles)
         protTrain.inputVolume.set(self.protResizeVol.outputVol)
@@ -127,9 +122,9 @@ class TestOpusDsd(BaseTest):
 
         print(magentaStr("\n==> Testing OPUS-DSD - Analysis:"))
         protAnalysis = self.newProtocol(OpusDsdProtAnalyze,
-                                        zDim=2,
+                                        zDim=4,
                                         viewEpoch=EPOCH_PENULTIMATE,
-                                        numEpochs=3,
+                                        numEpochs=50,
                                         sampleMode=PCS,
                                         PC=3)
         protAnalysis.inputParticles.set(self.protResizePart.outputParticles)
@@ -139,8 +134,8 @@ class TestOpusDsd(BaseTest):
         print(magentaStr("\n==> Testing OPUS-DSD - Training:"))
         protTrain = self.newProtocol(OpusDsdProtTrain,
                                      abInitio=ANALYSIS,
-                                     numEpochs=3,
-                                     zDim=4)
+                                     numEpochs=50,
+                                     zDim=10)
         protTrain.inputParticles.set(self.protResizePart.outputParticles)
         protTrain.inputVolume.set(self.protResizeVol.outputVol)
         protTrain.opusDSDAnalysisProtocol.set(protAnalysis)
