@@ -27,27 +27,25 @@
 # *
 # **************************************************************************
 
-import os
-
 from pyworkflow.tests import BaseTest, DataSet, setupTestProject
 from pyworkflow.utils import magentaStr
-from pwem.protocols import (ProtImportParticles, ProtImportVolumes,
-                            ProtSubSet, ProtUserSubSet)
+from pwem.protocols import (ProtImportParticles, ProtSubSet, ProtImportMask)
 from xmipp3.legacy.tests.test_protocols_subtract_projection import samplingRate
 from xmipp3.protocols import (XmippProtCropResizeParticles, XmippResizeHelper,
-                              XmippProtCropResizeVolumes, XmippProtCreateMask3D)
+                              XmippProtCreateMask3D, XmippProtCropResizeVolumes)
 
 from ..protocols import OpusDsdProtTrain, OpusDsdProtAnalyze
 from ..constants import *
 
 class TestOpusDsd(BaseTest):
     @classmethod
-    def runImportParticlesStar(cls, partStar, mag, samplingRate):
+    def runImportParticlesStar(cls, parts, mag, samplingRate):
         """ Import particles from Relion star file. """
         print(magentaStr("\n==> Import particles from Relion star file:"))
         cls.protImportPart = cls.newProtocol(ProtImportParticles,
-                                         importFrom=ProtImportParticles.IMPORT_FROM_SCIPION,
-                                         sqliteFile=partStar,
+                                         importFrom=ProtImportParticles.IMPORT_FROM_RELION,
+                                         starFile=parts,
+                                         #sqliteFile=parts,
                                          magnification=mag,
                                          samplingRate=samplingRate,
                                          haveDataBeenPhaseFlipped=False)
@@ -61,7 +59,7 @@ class TestOpusDsd(BaseTest):
         cls.protPartSubset = cls.newProtocol(ProtSubSet,
                                          inputFullSet=parts,
                                          chooseAtRandom=True,
-                                         nElements=500)
+                                         nElements=100)
         cls.launchProtocol(cls.protPartSubset)
         return cls.protPartSubset
 
@@ -72,61 +70,61 @@ class TestOpusDsd(BaseTest):
         cls.protResizePart = cls.newProtocol(XmippProtCropResizeParticles,
                                          inputParticles=parts, doResize=True,
                                          resizeOption=XmippResizeHelper.RESIZE_DIMENSIONS,
-                                         resizeDim=128)
+                                         resizeDim=64)
         cls.launchProtocol(cls.protResizePart)
         return cls.protResizePart
 
     @classmethod
-    def runImportVolume(cls, path, samplingRate):
-        """ Import volumes from Relion star file. """
-        print(magentaStr("\n==> Import volume from Relion star file:"))
-        cls.protImportVol = cls.newProtocol(ProtImportVolumes,
-                                        filesPath=path,
+    def runImportMask(cls, path, samplingRate):
+        """ Import mask for selected particles. """
+        print(magentaStr("\n==> Import mask for selected particles:"))
+        cls.protImportMask = cls.newProtocol(ProtImportMask,
+                                        maskPath=path,
                                         samplingRate=samplingRate)
-        cls.launchProtocol(cls.protImportVol)
-        return cls.protImportVol
+        cls.launchProtocol(cls.protImportMask)
+        return cls.protImportMask
 
     @classmethod
-    def runResizeVolume(cls, vol):
-        """ Resize volumes from previous Import. """
-        print(magentaStr("\n==> Resize volume from previous Import:"))
-        cls.protResizeVol = cls.newProtocol(XmippProtCropResizeVolumes,
-                                        inputVolumes=vol, doResize=True,
-                                        resizeOption=XmippResizeHelper.RESIZE_DIMENSIONS,
-                                        resizeDim=128)
-        cls.launchProtocol(cls.protResizeVol)
-        return cls.protResizeVol
+    def runResizeMask(cls, mask):
+        """ Resize particles from previous Import. """
+        print(magentaStr("\n==> Resize mask particles from previous Import:"))
+        cls.protResizeMask = cls.newProtocol(XmippProtCropResizeVolumes,
+                                         inputVolumes=mask, doResize=True,
+                                         resizeOption=XmippResizeHelper.RESIZE_DIMENSIONS,
+                                         resizeDim=64)
+        cls.launchProtocol(cls.protResizeMask)
+        return cls.protResizeMask
 
     @classmethod
     def setUpClass(cls):
         setupTestProject(cls)
         #cls.dataset = DataSet.getDataSet('FlexHub_Tutorials')
         cls.dataset = '/home/egarcia/Escritorio/for/scipion/data/tests/FlexHub_Tutorials'
-        cls.partFn = cls.dataset + '/Starter_Guide/particles.sqlite'
-        cls.vol = cls.dataset + '/Starter_Guide/AK.vol'
+        cls.partFn = cls.dataset + '/Advanced_Guide/particles_026609.star'
+        cls.mask = cls.dataset + '/Advanced_Guide/reference_mask.mrc'
         cls.protImportPart = cls.runImportParticlesStar(cls.partFn, 50000, samplingRate=samplingRate)
         cls.protPartSubset = cls.runCreateParticlesSubset(cls.protImportPart.outputParticles)
         cls.protResizePart = cls.runResizeParticles(cls.protPartSubset.outputParticles)
-        cls.protImportVol = cls.runImportVolume(cls.vol, samplingRate=samplingRate)
-        cls.protResizeVol = cls.runResizeVolume(cls.protImportVol.outputVolume)
+        cls.protImportMask = cls.runImportMask(cls.mask, samplingRate=samplingRate)
+        cls.protResizeMask = cls.runResizeMask(cls.protImportMask.outputMask)
 
     def testTrainingAnalysis(self):
         print(magentaStr("\n==> Testing OPUS-DSD - Training Ab-Initio:"))
         protTrain = self.newProtocol(OpusDsdProtTrain,
                                      abInitio=PREPROCESS,
-                                     numEpochs=50,
-                                     zDim=4)
+                                     useMask=True,
+                                     numEpochs=4,
+                                     zDim=12)
         protTrain.inputParticles.set(self.protResizePart.outputParticles)
-        protTrain.inputVolume.set(self.protResizeVol.outputVol)
+        protTrain.inputMask.set(self.protResizeMask.outputVol)
         self.launchProtocol(protTrain)
 
         print(magentaStr("\n==> Testing OPUS-DSD - Analysis:"))
         protAnalysis = self.newProtocol(OpusDsdProtAnalyze,
-                                        zDim=4,
-                                        viewEpoch=EPOCH_PENULTIMATE,
-                                        numEpochs=50,
+                                        zDim=12,
+                                        numEpochs=4,
                                         sampleMode=PCS,
-                                        PC=3)
+                                        PC=4)
         protAnalysis.inputParticles.set(self.protResizePart.outputParticles)
         protAnalysis.opusDSDTrainingProtocol.set(protTrain)
         self.launchProtocol(protAnalysis)
@@ -134,9 +132,10 @@ class TestOpusDsd(BaseTest):
         print(magentaStr("\n==> Testing OPUS-DSD - Training:"))
         protTrain = self.newProtocol(OpusDsdProtTrain,
                                      abInitio=ANALYSIS,
-                                     numEpochs=50,
-                                     zDim=10)
+                                     useMask=True,
+                                     numEpochs=4,
+                                     zDim=12)
         protTrain.inputParticles.set(self.protResizePart.outputParticles)
-        protTrain.inputVolume.set(self.protResizeVol.outputVol)
+        protTrain.inputMask.set(self.protResizeMask.outputVol)
         protTrain.opusDSDAnalysisProtocol.set(protAnalysis)
         self.launchProtocol(protTrain)
