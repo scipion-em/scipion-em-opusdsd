@@ -2,6 +2,7 @@
 # *
 # * Authors:     Grigory Sharov (gsharov@mrc-lmb.cam.ac.uk) [1]
 # *              James Krieger (jmkrieger@cnb.csic.es) [2]
+# *              Eduardo García Delgado (eduardo.garcia@cnb.csic.es) [2]
 # *
 # * [1] MRC Laboratory of Molecular Biology (MRC-LMB)
 # * [2] Unidad de  Biocomputacion, Centro Nacional de Biotecnologia, CSIC (CNB-CSIC)
@@ -39,10 +40,6 @@ OPUSDSD_HOME = 'OPUSDSD_HOME'
 DEFAULT_ENV_NAME = getOpusDsdEnvName(OPUSDSD_DEFAULT_VER_NUM)
 DEFAULT_ACTIVATION_CMD = 'conda activate ' + DEFAULT_ENV_NAME
 OPUSDSD_ENV_ACTIVATION = 'OPUSDSD_ENV_ACTIVATION'
-
-# Viewer constants
-EPOCH_PENULTIMATE = 0
-EPOCH_SELECTION = 1
 
 KMEANS = 0
 PCS = 1
