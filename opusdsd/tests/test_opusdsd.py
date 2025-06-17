@@ -112,7 +112,6 @@ class TestOpusDsd(BaseTest):
         print(magentaStr("\n==> Testing OPUS-DSD - Training Ab-Initio:"))
         protTrain = self.newProtocol(OpusDsdProtTrain,
                                      abInitio=PREPROCESS,
-                                     useMask=True,
                                      numEpochs=4,
                                      zDim=12)
         protTrain.inputParticles.set(self.protResizePart.outputParticles)
@@ -132,7 +131,6 @@ class TestOpusDsd(BaseTest):
         print(magentaStr("\n==> Testing OPUS-DSD - Training:"))
         protTrain = self.newProtocol(OpusDsdProtTrain,
                                      abInitio=ANALYSIS,
-                                     useMask=True,
                                      numEpochs=4,
                                      zDim=12)
         protTrain.inputParticles.set(self.protResizePart.outputParticles)

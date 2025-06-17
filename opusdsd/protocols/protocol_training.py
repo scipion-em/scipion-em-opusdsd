@@ -35,15 +35,12 @@ import pyworkflow.protocol.params as params
 from pyworkflow.plugin import Domain
 from pyworkflow.constants import PROD
 
-from xmipp_metadata.image_handler import ImageHandler
-
 from pwem.protocols import ProtProcessParticles, ProtFlexBase
 
 from .. import Plugin
 from ..constants import *
 
 convertR = Domain.importFromPlugin('relion.convert', doRaise=True)
-refineR = Domain.importFromPlugin('relion.protocols', 'ProtRelionCreateMask3D', doRaise=True)
 
 class OpusDsdProtTrain(ProtProcessParticles, ProtFlexBase):
     """
@@ -59,7 +56,6 @@ class OpusDsdProtTrain(ProtProcessParticles, ProtFlexBase):
         """ Centralize how files are called within the protocol. """
         myDict = {
             'input_parts': self._getExtra('input_particles.star'),
-            'input_volume': self._getExtra('input_volume.mrc'),
             'input_mask': self._getExtra('input_mask.mrc'),
             'output_poses': self._getExtra('poses.pkl'),
             'output_ctfs': self._getExtra('ctfs.pkl'),
@@ -82,20 +78,10 @@ class OpusDsdProtTrain(ProtProcessParticles, ProtFlexBase):
                       pointerClass="SetOfParticles, SetOfParticlesFlex",
                       label='OPUS-DSD particles')
 
-        group = form.addGroup('Mask selection')
-        group.addParam('useMask', params.BooleanParam, default=True,
-                       label="Use Volume?")
-
-        group.addParam('inputVolume', params.PointerParam, allowsNull=True, pointerClass='Volume', condition='useMask',
-                       label="OPUS-DSD Volume",
-                       help="The suggestion is to use a solvent volume created from star file (or a given one for "
-                            "that specific set of particles). That way, we can obtain (optionally) a mask for a "
-                            "future operation.")
-
-        group.addParam('inputMask', params.PointerParam, pointerClass='Mask', condition='useMask',
+        form.addParam('inputMask', params.PointerParam, pointerClass='Mask',
                        label="OPUS-DSD Mask",
                        help="The suggestion is to use a solvent mask created from a volume (or a given one). "
-                            "If it isn't given, it will be calculated from the volume given, which will be necessary. "
+                            "If it isn't given, it must be calculated from the volume given, which will be necessary. "
                             "The program will focus on fitting the contents inside the mask (more specifically, "
                             "the 2D projection of a 3D mask). Since the majority part of image doesn't contain "
                             "electron density, using the original image size is wasteful, by specifying a mask, "
@@ -254,29 +240,18 @@ class OpusDsdProtTrain(ProtProcessParticles, ProtFlexBase):
             alignType=alignType)
 
         # Create links to binary files and write the .mrc file
-        volFilename = self._getFileName('input_volume')
         maskFilename = self._getFileName('input_mask')
-        ih = ImageHandler()
-        if self.useMask:
-            if self._getInputVolume() is None and self._getInputMask() is not None:
-                inMask = self._getInputMask().getFileName()
-                ih.convert(inMask, maskFilename)
-            elif self._getInputVolume() is not None and self._getInputMask() is None:
-                inVol = convertR.convertBinaryVol(self._getInputVolume(), volFilename)
-                inMask = refineR(inputVolume=inVol, threshold=0.01, extend=5, edge=5)
-                ih.convert(inMask.getFileName(), maskFilename)
-            else:
-                raise TypeError("Some of the parameters (Volume/Mask) has not been selected correctly. Please, check.")
-
-        else:
-            raise TypeError("Volume not initialized. Please, consider adding an appropriate volume.")
+        inMask = self._getInputMask().getFileName()
+        shutil.copy(inMask, maskFilename)
 
     def runParseMdStep(self):
         # Creating both poses and ctfs files for training and evaluation
+        args = self._getFileName('input_parts')
+
         if self.boxSize.get() != -1:
-            args = '-D %d ' % self.boxSize.get()
+            args += ' -D %d ' % self.boxSize.get()
         else:
-            args = '-D %d ' % self._getBoxSize()
+            args += ' -D %d ' % self._getBoxSize()
 
         if self.relion31:
             args += '--relion31 '
@@ -287,10 +262,14 @@ class OpusDsdProtTrain(ProtProcessParticles, ProtFlexBase):
             args += '--Apix %f ' % self._getInputParticles().getSamplingRate()
 
         args += '-o %s ' % self._getFileName('output_poses')
-        args += '--outdir %s ' % self._getExtra()
-        args += self._getFileName('input_parts')
 
-        self._runProgram('parse_pose_star', args)
+        if not self.multiBody:
+            args += '--outdir %s' % self._getExtra()
+            self._runProgram('parse_pose_star', args)
+        else:
+            #args += '--masks %s ' % self.masks
+            #args += '--outmasks %s ' % self._getExtra()
+            self._runProgram('parse_multi_pose_star', args)
 
         self._fixPosesTranslations()
 
@@ -323,6 +302,7 @@ class OpusDsdProtTrain(ProtProcessParticles, ProtFlexBase):
     def runTrainingStep(self):
         # Call OPUS-DSD with the appropriate parameters
         inputParticles = self._getFileName('input_parts')
+        inputMask = self._getFileName('input_mask')
 
         if self.abInitio:
             initEpoch = self.numEpochs.get() - 2
@@ -333,13 +313,7 @@ class OpusDsdProtTrain(ProtProcessParticles, ProtFlexBase):
 
         args = inputParticles
         args += ' --outdir %s ' % self._getExtra()
-
-        if self.useMask:
-            inputMask = self._getFileName('input_mask')
-            args += '--ref_vol %s ' % inputMask
-        else:
-            raise TypeError("Volume not initialized. Please, consider adding an appropriate volume.")
-
+        args += '--ref_vol %s ' % inputMask
         args += '--zdim %d ' % self.zDim
 
         if self.multiBody:
@@ -347,6 +321,9 @@ class OpusDsdProtTrain(ProtProcessParticles, ProtFlexBase):
 
         outputPoses = self._getExtra('poses.pkl')
         args += '--poses %s ' % outputPoses
+
+        #if self.multiBody:
+        #    args += '--masks %s ' % mask_params
 
         outputCtfs = self._getExtra('ctfs.pkl')
         args += '--ctf %s ' % outputCtfs
@@ -426,9 +403,6 @@ class OpusDsdProtTrain(ProtProcessParticles, ProtFlexBase):
 
     def _getInputParticles(self):
         return self.inputParticles.get()
-
-    def _getInputVolume(self):
-        return self.inputVolume.get()
 
     def _getInputMask(self):
         return self.inputMask.get()
