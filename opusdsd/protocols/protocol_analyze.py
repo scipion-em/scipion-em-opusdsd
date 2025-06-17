@@ -26,20 +26,12 @@
 # *  e-mail address 'scipion@cnb.csic.es'
 # *
 # **************************************************************************
-import os, shutil
-import pickle
+import os, shutil, glob
 import numpy as np
-import re
-from glob import glob
-
-from pwem.constants import ALIGN_PROJ, ALIGN_NONE
 import pyworkflow.utils as pwutils
 import pyworkflow.protocol.params as params
 import pyworkflow.object as pwobj
-from pyworkflow.plugin import Domain
 from pyworkflow.constants import PROD
-
-from xmipp_metadata.image_handler import ImageHandler
 
 from pwem.protocols import ProtProcessParticles, ProtFlexBase
 import pwem.objects as emobj
@@ -51,8 +43,11 @@ class OpusDsdProtAnalyze(ProtProcessParticles,ProtFlexBase):
     """
     Protocol to analyze results from OPUS-DSD neural network.
     """
-    _label = 'analyze'
+    _label = 'opusdsd analyze'
     _devStatus = PROD
+
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
 
     def _createFilenameTemplatesAnalyze(self):
         """ Centralize how files are called within the analysis protocol. """
@@ -72,32 +67,18 @@ class OpusDsdProtAnalyze(ProtProcessParticles,ProtFlexBase):
 
     def _defineParams(self, form):
         form.addSection(label='Input')
-        form.addHidden(params.GPU_LIST, params.StringParam, default='0',
-                       label="Choose GPU IDs",
-                       help="GPU may have several cores. Set it to zero"
-                            " if you do not know what we are talking about."
-                            " First core index is 0, second 1 and so on."
-                            " You can use multiple GPUs - in that case"
-                            " set to i.e. *0 1 2*.")
-
         form.addParam('inputParticles', params.PointerParam,
                       pointerClass="SetOfParticles, SetOfParticlesFlex",
                       label='OPUS-DSD particles')
 
         form.addSection(label='Preprocess')
         form.addParam('Apix', params.FloatParam, default=-1,
-                      label='Pixel size in A for output volumes',
+                      label='Pixel size in A/pix',
                       help='If left as -1, pixel size will be the same as the sampling rate of the input particles.')
 
         form.addParam('boxSize', params.IntParam, default=-1,
                       label='Box size of reconstruction (pixels)',
                       help='If left as -1, box size will be the same as the dimensions of the input particles.')
-
-        form.addParam('relion31', params.BooleanParam, default=True,
-                      label="Are particles from RELION 3.1?")
-
-        form.addParallelSection(threads=16, mpi=0)
-        form.getParam('numberOfThreads').default = pwobj.Integer(1)
 
         form.addSection(label='Analysis')
         form.addParam('opusDSDTrainingProtocol', params.PointerParam, label="Opus-DSD trained network",
@@ -125,16 +106,6 @@ class OpusDsdProtAnalyze(ProtProcessParticles,ProtFlexBase):
                            'resolution images (e.g. D=128) with '
                            '--zdim 1 and with --zdim 12 using the '
                            'default architecture (fast). Values between [1, 12].')
-
-        group = form.addGroup('Epoch Analysis', expertLevel=params.LEVEL_ADVANCED)
-        group.addParam('viewEpoch', params.EnumParam,
-                      choices=['penultimate', 'selection'], default=EPOCH_PENULTIMATE,
-                      display=params.EnumParam.DISPLAY_LIST,
-                      label="Epoch to analyze")
-
-        group.addParam('epochNum', params.IntParam,
-                      condition='viewEpoch==%d' % EPOCH_SELECTION,
-                      label="Epoch number")
 
         group = form.addGroup('PC Analysis', expertLevel=params.LEVEL_ADVANCED)
         group.addParam('numPCs', params.IntParam, default=4,
@@ -211,27 +182,39 @@ class OpusDsdProtAnalyze(ProtProcessParticles,ProtFlexBase):
                       label='Image Size', expertLevel=params.LEVEL_ADVANCED,
                       help='Set the size of image.')
 
+        form.addHidden(params.GPU_LIST, params.StringParam, default='0',
+                       label="Choose GPU IDs",
+                       help="GPU may have several cores. Set it to zero"
+                            " if you do not know what we are talking about."
+                            " First core index is 0, second 1 and so on."
+                            " You can use multiple GPUs - in that case"
+                            " set to i.e. *0 1 2*.")
+
+        form.addParallelSection(threads=4, mpi=0)
+
     # --------------------------- INSERT steps functions ----------------------
 
     def _insertAllSteps(self):
         self._createFilenameTemplatesAnalyze()
 
-        self._insertFunctionStep(self.runAnalysisStep)
-        self._insertFunctionStep(self.runEvalVolStep)
-        self._insertFunctionStep(self.createOutputStep)
+        pwutils.cleanPath(self._getExtra())
+        shutil.copytree(self._getFileName('workTrainDir'), self._getExtra())
+        shutil.move(self._getExtra() + '/run.log', self._getWorkDir() + '/run.log')
+        initEpoch = os.path.basename(self._getWorkDir()).split('.')[1]
+
+        self._insertFunctionStep(self.runAnalysisStep, initEpoch)
+        self._insertFunctionStep(self.runEvalVolStep, initEpoch)
+        self._insertFunctionStep(self.createOutputStep, initEpoch)
 
     # --------------------------- STEPS functions -----------------------------
 
-    def runAnalysisStep(self):
+    def runAnalysisStep(self, initEpoch):
         """ Call OPUS-DSD with the appropriate parameters to analyze """
-        pwutils.cleanPath(self._getExtra())
-        shutil.copytree(self._getFileName('workTrainDir'), self._getExtra())
-        shutil.copytree(self._getExtra() + '/run.log', self._getWorkDir() + '/run.log')
-        poseDir = self._getWorkDir() + f'/pose.{self._getEpoch()}.pkl'
+        poseDir = self._getWorkDir() + f'/pose.{initEpoch}.pkl'
 
         args = self._getWorkDir()
-        args += ' %d ' % self._getEpoch()
-        args += '--outdir %s ' % self._out()
+        args += ' %d ' % int(initEpoch)
+        args += '--outdir %s ' % self._out(initEpoch)
 
         if self.skipVol:
             args += '--skip-vol '
@@ -254,17 +237,17 @@ class OpusDsdProtAnalyze(ProtProcessParticles,ProtFlexBase):
 
         self._runProgram('analyze', args)
 
-    def runEvalVolStep(self):
+    def runEvalVolStep(self, initEpoch):
         """ Call OPUS-DSD with the appropriate parameters to analyze """
         config = self._getExtra() + '/config.pkl'
-        zFile = self._out(self._getFileName('z_N_pc', PC=self.PC.get()))
+        zFile = self._out(initEpoch, self._getFileName('z_N_pc', PC=self.PC.get()))
 
         args = '--config %s ' % config
 
         if self.sampleMode.get() == KMEANS:
-            args += '-o %s ' % self._out('kmeans%d') % self.ksamples.get()
+            args += '-o %s ' % self._out(initEpoch, 'kmeans%d') % self.ksamples.get()
         elif self.sampleMode.get() == PCS:
-            args += '-o %s ' % self._out('pc%d') % self.PC.get()
+            args += '-o %s ' % self._out(initEpoch, 'pc%d') % self.PC.get()
 
         args += '--prefix vol_ '
 
@@ -306,14 +289,14 @@ class OpusDsdProtAnalyze(ProtProcessParticles,ProtFlexBase):
 
         self._runProgram('eval_vol', args)
 
-    def createOutputStep(self):
+    def createOutputStep(self, initEpoch):
         """ Create the protocol outputs. """
-        weights = self._getWorkDir() + f'/weights.{self._getEpoch()}.pkl'
+        weights = self._getWorkDir() + f'/weights.{initEpoch}.pkl'
         config = self._getExtra() + '/config.pkl'
 
         # Creating a set of particles with z_values
         inSet = self._getInputParticles()
-        zIterValues = iter(self._getParticlesZvalues())
+        zIterValues = iter(self._getParticlesZvalues(initEpoch))
 
         outSet = self._createSetOfParticlesFlex(progName=OPUSDSD)
         outSet.copyInfo(inSet)
@@ -335,7 +318,7 @@ class OpusDsdProtAnalyze(ProtProcessParticles,ProtFlexBase):
 
         # Creating a set of volumes with z_values depending on the sampleMode
         fn = self._getExtra('volumes.sqlite')
-        files, zValues = self._getVolumesZCalc(sampleMode=PCS)
+        files, zValues = self._getVolumesZCalc(sampleMode=PCS, initEpoch=initEpoch)
         if self.Apix.get() != -1:
             volSet = self._createVolumeZSet(files, zValues, fn,
                                             params.Float(self.Apix.get()))
@@ -356,12 +339,6 @@ class OpusDsdProtAnalyze(ProtProcessParticles,ProtFlexBase):
     def _validateBase(self):
         errors = []
 
-        if self.viewEpoch == EPOCH_SELECTION:
-            ep = self.epochNum.get()
-            total = self.numEpochs.get()
-            if ep > total:
-                errors.append(f"You can analyse only epochs 1-{total}")
-
         return errors
 
     # --------------------------- UTILS functions -----------------------------
@@ -379,41 +356,31 @@ class OpusDsdProtAnalyze(ProtProcessParticles,ProtFlexBase):
         gpus = ','.join(str(i) for i in self.getGpuList())
         self.runJob(Plugin.getProgram(program, gpus, fromCryodrgn=fromCryodrgn), args)
 
-    def _getEpoch(self):
-        """ Return the specific analysis iteration. """
-        if self.viewEpoch == EPOCH_PENULTIMATE:
-            self._epoch = self.numEpochs.get() - 2
-        else:
-            self._epoch = self.epochNum.get()
-        return self._epoch
-
     def _getWorkDir(self):
-        return self._getExtra() + f'/CVResults.{self._getEpoch()}'
+        workDir = [dir for dir in os.listdir(self._getExtra()) if dir.startswith('CV')]
+        return self._getExtra(workDir[0])
 
-    def _out(self, *p):
+    def _out(self, initEpoch, *p):
         if self._hasMultLatentVars():
-            return os.path.join(self._getWorkDir() + f'/defanalyze.{self._getEpoch()}', *p)
+            return os.path.join(self._getWorkDir() + f'/defanalyze.{initEpoch}', *p)
         else:
-            return os.path.join(self._getWorkDir() + f'/analyze.{self._getEpoch()}', *p)
+            return os.path.join(self._getWorkDir() + f'/analyze.{initEpoch}', *p)
 
-    def _getEpochZFile(self):
-        return self._getWorkDir() + f'/z.{self._getEpoch()}.pkl'
-
-    def _setParticlesZValues(self):
+    def _setParticlesZValues(self, initEpoch):
         """
         Read from z.pkl file the particles z_values and turns it into a z.npz file
         """
-        zEpochFile = self._getEpochZFile()
+        zEpochFile = self._getWorkDir() + f'/z.{initEpoch}.pkl'
         zEpochFileNew = self._getWorkDir() + '/output_file'
         self.runJob(Plugin.getTorchLoadProgram(self._getWorkDir(), zEpochFile, zEpochFileNew), '')
 
-    def _getParticlesZvalues(self):
+    def _getParticlesZvalues(self, initEpoch):
         """
         Read from z.npz file the particles z_values
         :return: a numpy array with the particles z_values
         """
         zEpochFileNpz = self._getWorkDir() + '/output_file.npz'
-        self._setParticlesZValues()
+        self._setParticlesZValues(initEpoch)
         zValues = np.load(zEpochFileNpz)
         return zValues['mu']
 
@@ -424,7 +391,7 @@ class OpusDsdProtAnalyze(ProtProcessParticles,ProtFlexBase):
         """
         return np.loadtxt(zValueFile, dtype=float).tolist()
 
-    def _getVolumesZCalc(self, sampleMode=PCS):
+    def _getVolumesZCalc(self, sampleMode, initEpoch):
         """ Returns a list of volume names and their zValues. """
         vols = []
         zValues = []
@@ -434,9 +401,9 @@ class OpusDsdProtAnalyze(ProtProcessParticles,ProtFlexBase):
                     fn = 'output_volN_km'
                     ksamples = self.ksamples.get()
                     zValue = 'z_valuesN_km'
-                    zValues.extend(self._getVolumeZvalues(self._out(self._getFileName(zValue, ksamples=ksamples))))
+                    zValues.extend(self._getVolumeZvalues(self._out(initEpoch, self._getFileName(zValue, ksamples=ksamples))))
                     for volId in range(ksamples):
-                        volFn = self._out(self._getFileName(fn, ksamples=ksamples, id=volId))
+                        volFn = self._out(initEpoch, self._getFileName(fn, ksamples=ksamples, id=volId))
                         vols = self._appendVolumes(vols, volFn)
 
                 else:
@@ -444,15 +411,15 @@ class OpusDsdProtAnalyze(ProtProcessParticles,ProtFlexBase):
                     zValue = 'z_valuesN_pc'
                     PC = self.PC.get()
                     numPCs = self.numPCs.get()
-                    zValues.extend(self._getVolumeZvalues(self._out(self._getFileName(zValue, PC=PC))))
+                    zValues.extend(self._getVolumeZvalues(self._out(initEpoch, self._getFileName(zValue, PC=PC))))
                     for volId in range(numPCs):
-                        volFn = self._out(self._getFileName(fn, PC=PC, id=volId))
+                        volFn = self._out(initEpoch, self._getFileName(fn, PC=PC, id=volId))
                         vols = self._appendVolumes(vols, volFn)
             else:
                 fn = 'output_vol'
                 zValue = 'z_values'
-                zValues.extend(self._getVolumeZvalues(self._out(self._getFileName(zValue))))
-                volFn = self._out(self._getFileName(fn, id=0))
+                zValues.extend(self._getVolumeZvalues(self._out(initEpoch, self._getFileName(zValue))))
+                volFn = self._out(initEpoch, self._getFileName(fn, id=0))
                 vols = self._appendVolumes(vols, volFn)
 
         else:
@@ -463,9 +430,9 @@ class OpusDsdProtAnalyze(ProtProcessParticles,ProtFlexBase):
                     zValue = 'z_N_pc'
                     PC = self.PC.get()
                     numPCs = self.numPCs.get()
-                    zValues.extend(self._getVolumeZvalues(self._out(self._getFileName(zValue, PC=PC))))
+                    zValues.extend(self._getVolumeZvalues(self._out(initEpoch, self._getFileName(zValue, PC=PC))))
                     for volId in range(numPCs):
-                        volFn = self._out(self._getFileName(fn, PC=PC, id=volId))
+                        volFn = self._out(initEpoch, self._getFileName(fn, PC=PC, id=volId))
                         vols = self._appendVolumes(vols, volFn)
 
                 else:
@@ -473,15 +440,15 @@ class OpusDsdProtAnalyze(ProtProcessParticles,ProtFlexBase):
                     zValue = 'z_N_pc'
                     PC = self.PC.get()
                     numPCs = self.numPCs.get()
-                    zValues.extend(self._getVolumeZvalues(self._out(self._getFileName(zValue, PC=PC))))
+                    zValues.extend(self._getVolumeZvalues(self._out(initEpoch, self._getFileName(zValue, PC=PC))))
                     for volId in range(numPCs):
-                        volFn = self._out(self._getFileName(fn, PC=PC, id=volId))
+                        volFn = self._out(initEpoch, self._getFileName(fn, PC=PC, id=volId))
                         vols = self._appendVolumes(vols, volFn)
             else:
                 fn = 'output_vol'
                 zValue = 'z_values'
-                zValues.extend(self._getVolumeZvalues(self._out(self._getFileName(zValue))))
-                volFn = self._out(self._getFileName(fn, id=0))
+                zValues.extend(self._getVolumeZvalues(self._out(initEpoch, self._getFileName(zValue))))
+                volFn = self._out(initEpoch, self._getFileName(fn, id=0))
                 vols = self._appendVolumes(vols, volFn)
         return vols, zValues
 
@@ -531,7 +498,6 @@ class OpusDsdProtAnalyze(ProtProcessParticles,ProtFlexBase):
 
     def _fixZDim(self, zFile, zDim):
         # In case zDim isn't a multiple of z size, we correct it so that its reshaping works.
-        zFile = self._out(self._getFileName('z_N_pc', PC=self.PC.get()))
         zSize = len(np.loadtxt(zFile))
         while zSize % zDim != 0:
             zDim = zDim - 1
