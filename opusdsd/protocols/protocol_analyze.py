@@ -71,7 +71,6 @@ class OpusDsdProtAnalyze(ProtProcessParticles,ProtFlexBase):
                       pointerClass="SetOfParticles, SetOfParticlesFlex",
                       label='OPUS-DSD particles')
 
-        form.addSection(label='Preprocess')
         form.addParam('Apix', params.FloatParam, default=-1,
                       label='Pixel size in A/pix',
                       help='If left as -1, pixel size will be the same as the sampling rate of the input particles.')

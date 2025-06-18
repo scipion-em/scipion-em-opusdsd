@@ -88,7 +88,6 @@ class OpusDsdProtTrain(ProtProcessParticles, ProtFlexBase):
                             "our program will automatically determine a suitable crop rate "
                             "to keep only the region with densities.")
 
-        form.addSection(label='Preprocess')
         form.addParam('Apix', params.FloatParam, default=-1,
                       label='Pixel size in A/pix',
                       help='If left as -1, pixel size will be the same as the sampling rate of the input particles.')
@@ -96,9 +95,6 @@ class OpusDsdProtTrain(ProtProcessParticles, ProtFlexBase):
         form.addParam('boxSize', params.IntParam, default=-1,
                       label='Box size of reconstruction (pixels)',
                       help='If left as -1, box size will be the same as the dimensions of the input particles.')
-
-        form.addParam('relion31', params.BooleanParam, default=True,
-                      label="Are particles from RELION 3.1?")
 
         form.addSection(label='Training')
 
@@ -253,8 +249,7 @@ class OpusDsdProtTrain(ProtProcessParticles, ProtFlexBase):
         else:
             args += ' -D %d ' % self._getBoxSize()
 
-        if self.relion31:
-            args += '--relion31 '
+        args += '--relion31 '
 
         if self.Apix.get() != -1:
             args += '--Apix %f ' % self.Apix.get()
@@ -285,8 +280,7 @@ class OpusDsdProtTrain(ProtProcessParticles, ProtFlexBase):
         else:
             args += '-D %d ' % self._getBoxSize()
 
-        if self.relion31:
-            args += '--relion31 '
+        args += '--relion31 '
 
         args += '-o %s ' % self._getFileName('output_ctfs')
 
@@ -337,10 +331,7 @@ class OpusDsdProtTrain(ProtProcessParticles, ProtFlexBase):
         args += '--split %s ' % self._getExtra('sp-split.pkl')
         args += '--valfrac %f ' % self.valFrac
         args += '--verbose '
-
-        if self.relion31:
-            args += '--relion31 '
-
+        args += '--relion31 '
         args += '--lazy-single '
 
         if self.abInitio:
