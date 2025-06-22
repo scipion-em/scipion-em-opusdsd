@@ -124,6 +124,10 @@ class TestOpusDsd(BaseTest):
                                         numEpochs=4,
                                         sampleMode=PCS,
                                         PC=4)
+
+        self.assertEqual(protTrain.numEpochs, protAnalysis.numEpochs, "Number of epochs for analysis must be "
+                                                                      "equal as for training.")
+
         protAnalysis.inputParticles.set(self.protResizePart.outputParticles)
         protAnalysis.opusDSDTrainingProtocol.set(protTrain)
         self.launchProtocol(protAnalysis)
