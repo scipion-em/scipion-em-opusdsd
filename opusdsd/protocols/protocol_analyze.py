@@ -79,6 +79,17 @@ class OpusDsdProtAnalyze(ProtProcessParticles,ProtFlexBase):
                       label='Box size of reconstruction (pixels)',
                       help='If left as -1, box size will be the same as the dimensions of the input particles.')
 
+        group = form.addGroup('Volume Generation')
+        group.addParam('sampleMode', params.EnumParam,
+                       choices=['KMEANS', 'PCS'], default=PCS,
+                       label='Sample Mode', help='Selection of analysis method for volumen generation')
+
+        group.addParam('downSampling', params.IntParam, default=64,
+                       label='DownSampling', help='Downsample volumes to this box size (pixels)')
+
+        group.addParam('PC', params.IntParam, default=1,
+                       label='PC', help='Specific principal component to choose zValues for volume generation')
+
         form.addSection(label='Analysis')
         form.addParam('opusDSDTrainingProtocol', params.PointerParam, label="Opus-DSD trained network",
                       pointerClass='OpusDsdProtTrain',
@@ -131,27 +142,6 @@ class OpusDsdProtAnalyze(ProtProcessParticles,ProtFlexBase):
                            "of representative density maps to visually inspect in a "
                            "subsequent generation of volumes. ")
 
-        form.addSection(label='Volume Generation')
-        form.addParam('sampleMode', params.EnumParam,
-                      choices=['KMEANS', 'PCS'], default=PCS,
-                      label='Sample Mode', help='Selection of analysis method for volumen generation')
-
-        form.addParam('downSampling', params.IntParam, default=64,
-                      label='DownSampling', help='Downsample volumes to this box size (pixels)')
-
-        form.addParam('PC', params.IntParam, default=1,
-                       label='PC', help='Specific principal component to choose zValues for volume generation')
-
-        form.addParam('deform', params.BooleanParam, default=False,
-                       label="Use zTemplate?")
-
-        form.addParam('zTemplate', params.StringParam, condition='deform', label="zTemplate",
-                       help="Path for template encoding when deforming the structure is required.")
-
-        form.addParam('zTemplateIndex', params.IntParam, default=20,
-                      condition='deform', label="zTemplateIndex",
-                      help="Path for template encoding when deforming the structure is required.")
-
         group = form.addGroup('Encoder', expertLevel=params.LEVEL_ADVANCED)
         group.addParam('qLayers', params.IntParam, default=3,
                        label='Number of hidden layers of the encoder',
@@ -180,6 +170,17 @@ class OpusDsdProtAnalyze(ProtProcessParticles,ProtFlexBase):
         form.addParam('imageSize', params.IntParam, default=192,
                       label='Image Size', expertLevel=params.LEVEL_ADVANCED,
                       help='Set the size of image.')
+
+        form.addParam('deform', params.BooleanParam, default=False,
+                      label="Use zTemplate?", expertLevel=params.LEVEL_ADVANCED)
+
+        form.addParam('zTemplate', params.StringParam,
+                      condition='deform', label="zTemplate", expertLevel=params.LEVEL_ADVANCED,
+                      help="Path for template encoding when deforming the structure is required.")
+
+        form.addParam('zTemplateIndex', params.IntParam, default=20,
+                      condition='deform', label="zTemplate Index", expertLevel=params.LEVEL_ADVANCED,
+                      help="Path for template encoding when deforming the structure is required.")
 
         form.addHidden(params.GPU_LIST, params.StringParam, default='0',
                        label="Choose GPU IDs",
