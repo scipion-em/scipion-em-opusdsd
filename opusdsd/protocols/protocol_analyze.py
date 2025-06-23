@@ -69,7 +69,7 @@ class OpusDsdProtAnalyze(ProtProcessParticles,ProtFlexBase):
         form.addSection(label='Input')
         form.addParam('inputParticles', params.PointerParam,
                       pointerClass="SetOfParticles, SetOfParticlesFlex",
-                      label='OPUS-DSD particles')
+                      label='Input Particles')
 
         form.addParam('Apix', params.FloatParam, default=-1,
                       label='Pixel size in A/pix',
@@ -233,7 +233,7 @@ class OpusDsdProtAnalyze(ProtProcessParticles,ProtFlexBase):
 
         args += '--pc %d ' % self.numPCs
         args += '--ksample %d ' % self.ksamples
-        args += '--psample %d ' % self.psamples
+        args += '--psample %d' % self.psamples
 
         self._runProgram('analyze', args)
 

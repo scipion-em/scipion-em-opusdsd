@@ -38,7 +38,6 @@ from pyworkflow.constants import PROD
 from pwem.protocols import ProtProcessParticles, ProtFlexBase
 
 from .. import Plugin
-from ..constants import *
 
 convertR = Domain.importFromPlugin('relion.convert', doRaise=True)
 
@@ -63,10 +62,10 @@ class OpusDsdProtTrain(ProtProcessParticles, ProtFlexBase):
         self._updateFilenamesDict(myDict)
 
     def _createFilenameTemplatesTraining(self):
-        """ Centralize how files are called within the analysis protocol. """
+        """ Centralize how files are called within the training protocol. """
         if not self.abInitio:
             myDict = {
-                'workAnalysisDir': self._getOpusDSDAnalysisProtocol()._getExtra()
+                'workTrainDir': self._getOpusDSDTrainingProtocol()._getExtra()
             }
             self._updateFilenamesDict(myDict)
 
@@ -76,10 +75,10 @@ class OpusDsdProtTrain(ProtProcessParticles, ProtFlexBase):
         form.addSection(label='Input')
         form.addParam('inputParticles', params.PointerParam,
                       pointerClass="SetOfParticles, SetOfParticlesFlex",
-                      label='OPUS-DSD particles')
+                      label='Input Particles')
 
         form.addParam('inputMask', params.PointerParam, pointerClass='Mask',
-                       label="OPUS-DSD Mask",
+                       label="Input Mask",
                        help="The suggestion is to use a solvent mask created from a volume (or a given one). "
                             "If it isn't given, it must be calculated from the volume given, which will be necessary. "
                             "The program will focus on fitting the contents inside the mask (more specifically, "
@@ -101,13 +100,13 @@ class OpusDsdProtTrain(ProtProcessParticles, ProtFlexBase):
         group = form.addGroup('Protocols')
         group.addParam('abInitio', params.BooleanParam, default=True,
                        label="Ab-Initio condition",
-                       help="If preprocess data is required, set to yes, if analysis data is required, set to no.")
+                       help="If preprocess data is required, set to yes, if training data is required, set to no.")
 
-        group.addParam('opusDSDAnalysisProtocol', params.PointerParam,
-                       condition='abInitio==%s' % ANALYSIS,
-                       pointerClass='OpusDsdProtAnalyze',
-                       label="Opus-DSD analysis protocol",
-                       help="Previously executed 'Analyze - Opus-DSD'. "
+        group.addParam('opusDSDTrainingProtocol', params.PointerParam,
+                       condition='abInitio==%s' % False,
+                       pointerClass='OpusDsdProtTrain',
+                       label="Opus-DSD training protocol",
+                       help="Previously executed 'opusdsd training'. "
                             "This will allow to load the necessary results the previous protocol achieved to get")
 
         form.addParam('multiBody', params.BooleanParam, default=False,
@@ -227,13 +226,16 @@ class OpusDsdProtTrain(ProtProcessParticles, ProtFlexBase):
 
     def convertInputStep(self):
         """ Create a star file as expected by OPUS-DSD."""
-        alignType = ALIGN_PROJ if self._inputHasAlign() else ALIGN_NONE
-        inSet = self._getInputParticles()
+        inParts = self._getInputParticles().getFileName()
         starFilename = self._getFileName('input_parts')
-        convertR.writeSetOfParticles(
-            inSet, starFilename,
-            outputDir=self._getExtra(),
-            alignType=alignType)
+        if inParts.endswith('.star'):
+            shutil.copy(inParts, starFilename)
+        else:
+            alignType = ALIGN_PROJ if self._inputHasAlign() else ALIGN_NONE
+            convertR.writeSetOfParticles(
+                self._getInputParticles(), starFilename,
+                outputDir=self._getExtra(),
+                alignType=alignType)
 
         # Create links to binary files and write the .mrc file
         maskFilename = self._getFileName('input_mask')
@@ -302,7 +304,7 @@ class OpusDsdProtTrain(ProtProcessParticles, ProtFlexBase):
             initEpoch = self.numEpochs.get() - 2
         else:
             pwutils.cleanPath(self._getExtra())
-            shutil.copytree(self._getFileName('workAnalysisDir'), self._getExtra())
+            shutil.copytree(self._getFileName('workTrainDir'), self._getExtra())
             initEpoch = os.path.basename(self._getWorkDir()).split('.')[1]
 
         args = inputParticles
@@ -450,5 +452,5 @@ class OpusDsdProtTrain(ProtProcessParticles, ProtFlexBase):
             elif file.endswith('.pkl') and int(file.split('.')[1]) != self._getEpoch(initEpoch):
                 os.remove(self._getExtra(file))
 
-    def _getOpusDSDAnalysisProtocol(self):
-        return self.opusDSDAnalysisProtocol.get()
+    def _getOpusDSDTrainingProtocol(self):
+        return self.opusDSDTrainingProtocol.get()
