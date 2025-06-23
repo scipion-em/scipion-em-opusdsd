@@ -77,7 +77,7 @@ class OpusDsdProtTrain(ProtProcessParticles, ProtFlexBase):
                       pointerClass="SetOfParticles, SetOfParticlesFlex",
                       label='Input Particles')
 
-        form.addParam('inputMask', params.PointerParam, pointerClass='Mask',
+        form.addParam('inputMask', params.PointerParam, pointerClass='VolumeMask',
                        label="Input Mask",
                        help="The suggestion is to use a solvent mask created from a volume (or a given one). "
                             "If it isn't given, it must be calculated from the volume given, which will be necessary. "
