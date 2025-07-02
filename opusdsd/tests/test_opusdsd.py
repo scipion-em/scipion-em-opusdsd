@@ -59,7 +59,7 @@ class TestOpusDsd(BaseTest):
         cls.protPartSubset = cls.newProtocol(ProtSubSet,
                                          inputFullSet=parts,
                                          chooseAtRandom=True,
-                                         nElements=100)
+                                         nElements=10000)
         cls.launchProtocol(cls.protPartSubset)
         return cls.protPartSubset
 
@@ -112,32 +112,32 @@ class TestOpusDsd(BaseTest):
         print(magentaStr("\n==> Testing OPUS-DSD - Training Ab-Initio:"))
         protTrain = self.newProtocol(OpusDsdProtTrain,
                                      abInitio=True,
-                                     numEpochs=4,
+                                     numEpochs=20,
                                      zDim=12)
-        protTrain.inputParticles.set(self.protResizePart.outputParticles)
-        protTrain.inputMask.set(self.protResizeMask.outputVol)
+        protTrain.inputParticles.set(self.protPartSubset.outputParticles)
+        protTrain.inputMask.set(self.protImportMask.outputMask)
         self.launchProtocol(protTrain)
 
         print(magentaStr("\n==> Testing OPUS-DSD - Analysis:"))
         protAnalysis = self.newProtocol(OpusDsdProtAnalyze,
                                         zDim=12,
-                                        numEpochs=4,
+                                        numEpochs=20,
                                         sampleMode=PCS,
                                         PC=4)
 
         self.assertEqual(protTrain.numEpochs, protAnalysis.numEpochs, "Number of epochs for analysis must be "
                                                                       "equal as for training.")
 
-        protAnalysis.inputParticles.set(self.protResizePart.outputParticles)
+        protAnalysis.inputParticles.set(self.protPartSubset.outputParticles)
         protAnalysis.opusDSDTrainingProtocol.set(protTrain)
         self.launchProtocol(protAnalysis)
 
         print(magentaStr("\n==> Testing OPUS-DSD - Training:"))
         protTrain2 = self.newProtocol(OpusDsdProtTrain,
                                      abInitio=False,
-                                     numEpochs=4,
+                                     numEpochs=20,
                                      zDim=12)
-        protTrain2.inputParticles.set(self.protResizePart.outputParticles)
-        protTrain2.inputMask.set(self.protResizeMask.outputVol)
+        protTrain2.inputParticles.set(self.protPartSubset.outputParticles)
+        protTrain2.inputMask.set(self.protImportMask.outputMask)
         protTrain2.opusDSDTrainingProtocol.set(protTrain)
         self.launchProtocol(protTrain2)

@@ -95,7 +95,7 @@ class Plugin(pwem.Plugin):
             'pip install -e . &&',
             'pip install numpy==1.21.0 &&',
             'pip install seaborn==0.13.2 &&'
-            #'pip install torch==2.5.1 torchvision==0.20.1 torchaudio==2.5.1 --index-url https://download.pytorch.org/whl/cu118 &&',
+            #'pip install torch==2.0.0 torchvision==0.15.1 torchaudio==2.0.1 --index-url https://download.pytorch.org/whl/cu118 &&',
             f'touch {FLAG}'  # Flag installation finished
         ]
 

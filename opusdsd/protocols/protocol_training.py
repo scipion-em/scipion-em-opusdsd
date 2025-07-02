@@ -136,7 +136,7 @@ class OpusDsdProtTrain(ProtProcessParticles, ProtFlexBase):
         group.addParam('qLayers', params.IntParam, default=3,
                        label='Number of hidden layers of the encoder',
                        expertLevel=params.LEVEL_ADVANCED)
-        group.addParam('qDim', params.IntParam, default=1024,
+        group.addParam('qDim', params.IntParam, default=256,
                        label='Number of nodes in hidden layers of the encoder',
                        expertLevel=params.LEVEL_ADVANCED)
 
@@ -144,12 +144,12 @@ class OpusDsdProtTrain(ProtProcessParticles, ProtFlexBase):
         group.addParam('pLayers', params.IntParam, default=3,
                        label='Number of hidden layers of the decoder',
                        expertLevel=params.LEVEL_ADVANCED)
-        group.addParam('pDim', params.IntParam, default=1024,
+        group.addParam('pDim', params.IntParam, default=256,
                        label='Number of nodes in hidden layers of the decoder',
                        expertLevel=params.LEVEL_ADVANCED)
 
         form.addSection(label='Advanced')
-        form.addParam('batchSize', params.IntParam, default=4,
+        form.addParam('batchSize', params.IntParam, default=8,
                       label='Batch size',
                       expertLevel=params.LEVEL_ADVANCED,
                       help='Batch size for processing images.')
@@ -189,16 +189,17 @@ class OpusDsdProtTrain(ProtProcessParticles, ProtFlexBase):
                       label='Validation image fraction',
                       help='Fraction of images held for validation.')
 
-        form.addParam('downFrac', params.FloatParam, default=0.75,
-                      expertLevel=params.LEVEL_ADVANCED,
-                      label='Downsampling fraction',
-                      help='Downsample to this fraction of original size.')
-
-        form.addParam('templateres', params.IntParam, default=128,
+        form.addParam('templateres', params.IntParam, default=224,
                       expertLevel=params.LEVEL_ADVANCED,
                       label='Output size',
                       help='Define the output size of 3d volume of the convolutional network. You may keep it '
                            'around D*downFrac/0.75, which is larger than the input size.')
+
+        form.addParam('downFrac', params.FloatParam, default=0.25,
+                      expertLevel=params.LEVEL_ADVANCED,
+                      label='Downsampling fraction',
+                      help='Downsample to this fraction of original size. You can set it according to '
+                           'resolution of consensus model and the templateres you set')
 
         form.addHidden(params.GPU_LIST, params.StringParam, default='0',
                        label="Choose GPU IDs",
@@ -208,7 +209,7 @@ class OpusDsdProtTrain(ProtProcessParticles, ProtFlexBase):
                             " You can use multiple GPUs - in that case"
                             " set to i.e. *0 1 2*.")
 
-        form.addParallelSection(threads=4, mpi=0)
+        form.addParallelSection(threads=1, mpi=1)
 
     # --------------------------- INSERT steps functions ----------------------
 
@@ -440,10 +441,10 @@ class OpusDsdProtTrain(ProtProcessParticles, ProtFlexBase):
     def _outputRegroup(self, initEpoch):
         # Eliminating previous CV directory to focus on next training (just in not-ab-initio case)
         if not self.abInitio:
-            workDir = [dir for dir in os.listdir(self._getExtra()) if dir.startswith('CV')][0]
+            workDir = [dir for dir in os.listdir(self._getExtra()) if dir.startswith('Results')][0]
             pwutils.cleanPath(self._getExtra(workDir))
         # Creating outputs for the evaluated results from training
-        outputFolder = self._getExtra(f'CVResults.{self._getEpoch(initEpoch)}')
+        outputFolder = self._getExtra(f'Results.{self._getEpoch(initEpoch)}')
         os.makedirs(outputFolder, exist_ok=True)
         files = [file for file in os.listdir(self._getExtra()) if len(file.split('.')) == 3]
         for file in files:

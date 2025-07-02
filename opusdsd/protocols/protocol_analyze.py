@@ -27,10 +27,13 @@
 # *
 # **************************************************************************
 import os, shutil, glob
+from email.policy import default
+
 import numpy as np
 import pyworkflow.utils as pwutils
 import pyworkflow.protocol.params as params
 import pyworkflow.object as pwobj
+from pyparsing import conditionAsParseAction
 from pyworkflow.constants import PROD
 
 from pwem.protocols import ProtProcessParticles, ProtFlexBase
@@ -84,8 +87,11 @@ class OpusDsdProtAnalyze(ProtProcessParticles,ProtFlexBase):
                        choices=['KMEANS', 'PCS'], default=PCS,
                        label='Sample Mode', help='Selection of analysis method for volumen generation')
 
-        group.addParam('downSampling', params.IntParam, default=64,
-                       label='DownSampling', help='Downsample volumes to this box size (pixels)')
+        group.addParam('downSampling', params.BooleanParam, default=False, expertLevel=params.LEVEL_ADVANCED,
+                       label='DownSampling is needed?', help='Downsample volumes to this box size (pixels).')
+
+        group.addParam('downSample', params.IntParam, condition='downSampling', expertLevel=params.LEVEL_ADVANCED,
+                       label='DownSampling factor', help='DownSampling factor in case you want to resize volumes.')
 
         group.addParam('PC', params.IntParam, default=1,
                        label='PC', help='Specific principal component to choose zValues for volume generation')
@@ -146,7 +152,7 @@ class OpusDsdProtAnalyze(ProtProcessParticles,ProtFlexBase):
         group.addParam('qLayers', params.IntParam, default=3,
                        label='Number of hidden layers of the encoder',
                        expertLevel=params.LEVEL_ADVANCED)
-        group.addParam('qDim', params.IntParam, default=1024,
+        group.addParam('qDim', params.IntParam, default=256,
                        label='Number of nodes in hidden layers of the encoder',
                        expertLevel=params.LEVEL_ADVANCED)
 
@@ -154,7 +160,7 @@ class OpusDsdProtAnalyze(ProtProcessParticles,ProtFlexBase):
         group.addParam('pLayers', params.IntParam, default=3,
                        label='Number of hidden layers of the decoder',
                        expertLevel=params.LEVEL_ADVANCED)
-        group.addParam('pDim', params.IntParam, default=1024,
+        group.addParam('pDim', params.IntParam, default=256,
                        label='Number of nodes in hidden layers of the decoder',
                        expertLevel=params.LEVEL_ADVANCED)
 
@@ -167,7 +173,7 @@ class OpusDsdProtAnalyze(ProtProcessParticles,ProtFlexBase):
                       label='Skip UMAP', expertLevel=params.LEVEL_ADVANCED,
                       help='Skip running UMAP on latents.')
 
-        form.addParam('imageSize', params.IntParam, default=192,
+        form.addParam('imageSize', params.IntParam, default=224,
                       label='Image Size', expertLevel=params.LEVEL_ADVANCED,
                       help='Set the size of image.')
 
@@ -190,7 +196,7 @@ class OpusDsdProtAnalyze(ProtProcessParticles,ProtFlexBase):
                             " You can use multiple GPUs - in that case"
                             " set to i.e. *0 1 2*.")
 
-        form.addParallelSection(threads=4, mpi=0)
+        form.addParallelSection(threads=1, mpi=1)
 
     # --------------------------- INSERT steps functions ----------------------
 
@@ -266,7 +272,8 @@ class OpusDsdProtAnalyze(ProtProcessParticles,ProtFlexBase):
         else:
             args += '--Apix %f ' % self._getInputParticles().getSamplingRate()
 
-        args += '--downsample %d ' % self.downSampling
+        if self.downSampling:
+            args += '--downsample %d ' % self.downSample
 
         if self.boxSize.get() != -1:
             args += '-D %d ' % self.boxSize.get()
