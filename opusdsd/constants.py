@@ -28,12 +28,13 @@
 # **************************************************************************
 
 V0_3_2B = "0.3.2b"
+V1_1_0 = "v1.1.0"
 
-def getOpusDsdEnvName(version=V0_3_2B):
+def getOpusDsdEnvName(version=V1_1_0):
     return "opusdsd-%s" % version
 
-VERSIONS = [V0_3_2B]
-OPUSDSD_DEFAULT_VER_NUM = V0_3_2B
+VERSIONS = [V0_3_2B, V1_1_0]
+OPUSDSD_DEFAULT_VER_NUM = V1_1_0
 
 OPUSDSD_HOME = 'OPUSDSD_HOME'
 
