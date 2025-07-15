@@ -59,9 +59,8 @@ Supported versions
 Protocols
 ----------
 
-* preprocess
-* training VAE
-* training ab initio
+* training CV/Multi
+* analyze/eval_vol (volume generation)
 
 References
 -----------

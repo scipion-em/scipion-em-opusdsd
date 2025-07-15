@@ -2,6 +2,7 @@
 # *
 # * Authors:     Grigory Sharov (gsharov@mrc-lmb.cam.ac.uk) [1]
 # *              James Krieger (jmkrieger@cnb.csic.es) [2]
+# *              Eduardo García (eduardo.garcia@cnb.csic.es) [2]
 # *
 # * [1] MRC Laboratory of Molecular Biology (MRC-LMB)
 # * [2] Unidad de  Biocomputacion, Centro Nacional de Biotecnologia, CSIC (CNB-CSIC)
@@ -33,7 +34,6 @@ from pyworkflow import Config
 
 from .constants import *
 
-
 __version__ = '3.0.1'
 _references = ['Luo2023']
 _logo = "cryodrgn_logo.png"
@@ -42,7 +42,7 @@ _logo = "cryodrgn_logo.png"
 class Plugin(pwem.Plugin):
     _url = "https://github.com/scipion-em/scipion-em-opusdsd"
     _supportedVersions = VERSIONS
-    
+
     @classmethod
     def _defineVariables(cls):
         cls._defineVar(OPUSDSD_ENV_ACTIVATION, DEFAULT_ACTIVATION_CMD)
@@ -80,7 +80,7 @@ class Plugin(pwem.Plugin):
     def defineBinaries(cls, env):
         for ver in VERSIONS:
             cls.addOpusDsdPackage(env, ver,
-                                   default=ver == OPUSDSD_DEFAULT_VER_NUM)
+                                  default=ver == OPUSDSD_DEFAULT_VER_NUM)
 
     @classmethod
     def addOpusDsdPackage(cls, env, version, default=False):
@@ -92,6 +92,10 @@ class Plugin(pwem.Plugin):
             cls.getCondaActivationCmd(),
             f'conda env create --name {ENV_NAME} --file environment.yml --yes &&',
             f'conda activate {ENV_NAME} &&',
+            'pip install -e . &&',
+            'pip install numpy==1.21.0 &&',
+            'pip install seaborn==0.13.2 &&'
+            #'pip install torch==2.0.0 torchvision==0.15.1 torchaudio==2.0.1 --index-url https://download.pytorch.org/whl/cu118 &&',
             f'touch {FLAG}'  # Flag installation finished
         ]
 
@@ -125,10 +129,32 @@ class Plugin(pwem.Plugin):
                           cls.getOpusDsdEnvActivation())
 
     @classmethod
-    def getProgram(cls, program, gpus='0'):
+    def getProgram(cls, program, gpus='0', fromCryodrgn=True):
         """ Create Opus-DSD command line. """
-        fullProgram = 'cd %s && %s && CUDA_VISIBLE_DEVICES=%s python -m cryodrgn.commands.%s' % (
-            cls.getVar(OPUSDSD_HOME), cls.getActivationCmd(), gpus, program)
+
+        fullProgram = 'cd %s && %s && CUDA_VISIBLE_DEVICES=%s ' % (cls.getVar(OPUSDSD_HOME), cls.getActivationCmd(), gpus)
+
+        if fromCryodrgn:
+            fullProgram += 'python -m cryodrgn.commands.%s' % program
+        else:
+            fullProgram += 'sh %s/%s.sh' % (cls.getVar(OPUSDSD_HOME), program)
+
+        return fullProgram
+
+    @classmethod
+    def getTorchLoadProgram(cls, workDir, file, output_file):
+        """ Import Torch Load Program for Opus-DSD command line. """
+
+        fullProgram = (
+            f'cd {workDir} && {cls.getActivationCmd()} && '
+            'python -c "'
+            'import torch; '
+            'import numpy as np; '
+            f'data = torch.load(\'{file}\'); '
+            'npdata = {k: v.numpy() if hasattr(v, \'numpy\') else v for k, v in data.items()}; '
+            f'np.savez(\'{output_file + ".npz"}\', **npdata); '
+            f'np.savetxt(\'{output_file + ".txt"}\', npdata[list(npdata.keys())[0]])"'
+        )
 
         return fullProgram
 
