@@ -326,8 +326,8 @@ class OpusDsdProtTrain(ProtProcessParticles, ProtFlexBase):
         args += '--ctf %s ' % outputCtfs
 
         if not self.abInitio:
-            weights = self._getExtra(f'CVResults.{initEpoch}/weights.{initEpoch}.pkl')
-            z = self._getExtra(f'CVResults.{initEpoch}/z.{initEpoch}.pkl')
+            weights = self._getExtra(f'Results.{initEpoch}/weights.{initEpoch}.pkl')
+            z = self._getExtra(f'Results.{initEpoch}/z.{initEpoch}.pkl')
             args += '--load %s ' % weights
             args += '--latents %s ' % z
 
@@ -408,7 +408,7 @@ class OpusDsdProtTrain(ProtProcessParticles, ProtFlexBase):
         return os.path.abspath(self._getExtraPath(*paths))
 
     def _getWorkDir(self):
-        workDir = [dir for dir in os.listdir(self._getExtra()) if dir.startswith('CV')][0]
+        workDir = [dir for dir in os.listdir(self._getExtra()) if dir.startswith('Results')][0]
         return self._getExtra(workDir)
 
     def _runProgram(self, program, args, fromCryodrgn=True):
@@ -439,7 +439,7 @@ class OpusDsdProtTrain(ProtProcessParticles, ProtFlexBase):
         return self._epoch
 
     def _outputRegroup(self, initEpoch):
-        # Eliminating previous CV directory to focus on next training (just in not-ab-initio case)
+        # Eliminating previous Results directory to focus on next training (just in not-ab-initio case)
         if not self.abInitio:
             workDir = [dir for dir in os.listdir(self._getExtra()) if dir.startswith('Results')][0]
             pwutils.cleanPath(self._getExtra(workDir))
