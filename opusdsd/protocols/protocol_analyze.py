@@ -364,7 +364,7 @@ class OpusDsdProtAnalyze(ProtProcessParticles,ProtFlexBase):
         self.runJob(Plugin.getProgram(program, gpus, fromCryodrgn=fromCryodrgn), args)
 
     def _getWorkDir(self):
-        workDir = [dir for dir in os.listdir(self._getExtra()) if dir.startswith('CV')]
+        workDir = [dir for dir in os.listdir(self._getExtra()) if dir.startswith('Results')]
         return self._getExtra(workDir[0])
 
     def _out(self, initEpoch, *p):
