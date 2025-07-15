@@ -55,6 +55,7 @@ Supported versions
 ------------------
 
 0.3.2b
+
 v1.1.0
 
 Protocols
