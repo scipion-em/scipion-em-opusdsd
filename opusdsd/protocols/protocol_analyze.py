@@ -26,19 +26,14 @@
 # *  e-mail address 'scipion@cnb.csic.es'
 # *
 # **************************************************************************
-import os, shutil, glob
-from email.policy import default
-
+import os, shutil
 import numpy as np
 import pyworkflow.utils as pwutils
 import pyworkflow.protocol.params as params
 import pyworkflow.object as pwobj
-from pyparsing import conditionAsParseAction
 from pyworkflow.constants import PROD
-
 from pwem.protocols import ProtProcessParticles, ProtFlexBase
 import pwem.objects as emobj
-
 from .. import Plugin
 from ..constants import *
 
@@ -60,9 +55,8 @@ class OpusDsdProtAnalyze(ProtProcessParticles,ProtFlexBase):
             'output_volN_pc': 'pc%(PC)d/vol_%(id)01d.mrc',
             'output_volN_km': 'kmeans%(ksamples)d/vol_%(id)01d.mrc',
             'z_values': 'z_values.txt',
-            'z_valuesN_pc': 'pc%(PC)d/z_values.txt',
-            'z_N_pc': 'pc%(PC)d/z_pc.txt',
-            'z_valuesN_km': 'kmeans%(ksamples)d/z_values.txt'
+            'z_valuesN_pc': 'pc%(PC)d/z_pc.txt',
+            'z_valuesN_km': 'kmeans%(ksamples)d/centers.txt'
         }
         self._updateFilenamesDict(myDict)
 
@@ -74,28 +68,6 @@ class OpusDsdProtAnalyze(ProtProcessParticles,ProtFlexBase):
                       pointerClass="SetOfParticles, SetOfParticlesFlex",
                       label='Input Particles')
 
-        form.addParam('Apix', params.FloatParam, default=-1,
-                      label='Pixel size in A/pix',
-                      help='If left as -1, pixel size will be the same as the sampling rate of the input particles.')
-
-        form.addParam('boxSize', params.IntParam, default=-1,
-                      label='Box size of reconstruction (pixels)',
-                      help='If left as -1, box size will be the same as the dimensions of the input particles.')
-
-        group = form.addGroup('Volume Generation')
-        group.addParam('sampleMode', params.EnumParam,
-                       choices=['KMEANS', 'PCS'], default=PCS,
-                       label='Sample Mode', help='Selection of analysis method for volumen generation')
-
-        group.addParam('downSampling', params.BooleanParam, default=False, expertLevel=params.LEVEL_ADVANCED,
-                       label='DownSampling is needed?', help='Downsample volumes to this box size (pixels).')
-
-        group.addParam('downSample', params.IntParam, condition='downSampling', expertLevel=params.LEVEL_ADVANCED,
-                       label='DownSampling factor', help='DownSampling factor in case you want to resize volumes.')
-
-        group.addParam('PC', params.IntParam, default=1,
-                       label='PC', help='Specific principal component to choose zValues for volume generation')
-
         form.addSection(label='Analysis')
         form.addParam('opusDSDTrainingProtocol', params.PointerParam, label="Opus-DSD trained network",
                       pointerClass='OpusDsdProtTrain',
@@ -103,90 +75,36 @@ class OpusDsdProtAnalyze(ProtProcessParticles,ProtFlexBase):
                            "This will allow to load the results the network trained in that protocol "
                            "to be used during the analysis.")
 
-        form.addParam('numEpochs', params.IntParam, default=20,
-                      label='Number of epochs',
-                      help='The number of epochs refers to the number '
-                           'of full passes through the dataset for '
-                           'training, and should be modified depending '
-                           'on the number of particles in the dataset. '
-                           'For a 100k particle dataset, the above '
-                           'settings required ~6 min per epoch for D=128 '
-                           'images + default architecture, ~12 min/epoch '
-                           'for D=128 images + large architecture, and ~47 '
-                           'min per epoch for D=256 images + large architecture.')
+        group = form.addGroup('Volume Generation')
+        group.addParam('sampleMode', params.EnumParam,
+                       choices=['KMEANS', 'PCA'], default=PCA,
+                       label='Sample Mode', help='Selection of analysis method for volume generation')
 
-        form.addParam('zDim', params.IntParam, default=12,
-                      validators=[params.Positive],
-                      label='Dimension of latent variable',
-                      help='It is recommended to first train on lower '
-                           'resolution images (e.g. D=128) with '
-                           '--zdim 1 and with --zdim 12 using the '
-                           'default architecture (fast). Values between [1, 12].')
+        group.addParam('numPCs', params.IntParam, default=4, condition='sampleMode==%s' % PCA,
+                       label='Number of principal components',
+                       help='Number of principal components to sample for traversal.')
 
-        group = form.addGroup('PC Analysis', expertLevel=params.LEVEL_ADVANCED)
-        group.addParam('numPCs', params.IntParam, default=4,
-                      label='Number of principal components', expertLevel=params.LEVEL_ADVANCED,
-                      help='Number of principal components to sample for traversal.')
+        group.addParam('PC', params.IntParam, default=1, condition='sampleMode==%s' % PCA,
+                       label='PC', help='Specific principal component to choose zValues for volume generation')
 
-        group.addParam('psamples', params.IntParam, default=10,
-                      label='Number of PC samples to generate', expertLevel=params.LEVEL_ADVANCED,
+        group.addParam('psamples', params.IntParam, default=12, condition='sampleMode==%s' % PCA,
+                      label='Number of PC samples to generate',
                       help="*cryodrgn analyze* uses the principal component "
                            "algorithm to analyze the latent space into "
-                           "components (by default p=10 components), and generate a "
+                           "components (by default p=12 components), and generate a "
                            "trajectory along the specific principle component. "
                            "The goal is to provide z values along PC for a subsequent"
-                           "generation of volumes. ")
+                           "generation of volumes. psamples mod zDim must be 0.")
 
-        group = form.addGroup('K-Means Clustering', expertLevel=params.LEVEL_ADVANCED)
-        group.addParam('ksamples', params.IntParam, default=10,
-                      label='Number of K-means samples to generate', expertLevel=params.LEVEL_ADVANCED,
+        group.addParam('ksamples', params.IntParam, default=24, condition='sampleMode==%s' % KMEANS,
+                      label='Number of K-means samples to generate',
                       help="*cryodrgn analyze* uses the k-means clustering "
                            "algorithm to partition the latent space into "
                            "regions (by default k=20 regions), and generate a "
                            "density map from the center of each of these "
                            "regions. The goal is to provide a tractable number "
                            "of representative density maps to visually inspect in a "
-                           "subsequent generation of volumes. ")
-
-        group = form.addGroup('Encoder', expertLevel=params.LEVEL_ADVANCED)
-        group.addParam('qLayers', params.IntParam, default=3,
-                       label='Number of hidden layers of the encoder',
-                       expertLevel=params.LEVEL_ADVANCED)
-        group.addParam('qDim', params.IntParam, default=256,
-                       label='Number of nodes in hidden layers of the encoder',
-                       expertLevel=params.LEVEL_ADVANCED)
-
-        group = form.addGroup('Decoder', expertLevel=params.LEVEL_ADVANCED)
-        group.addParam('pLayers', params.IntParam, default=3,
-                       label='Number of hidden layers of the decoder',
-                       expertLevel=params.LEVEL_ADVANCED)
-        group.addParam('pDim', params.IntParam, default=256,
-                       label='Number of nodes in hidden layers of the decoder',
-                       expertLevel=params.LEVEL_ADVANCED)
-
-        form.addSection(label='Advanced')
-        form.addParam('skipVol', params.BooleanParam, default=True,
-                      label='Skip Volume', expertLevel=params.LEVEL_ADVANCED,
-                      help='Skip generation of volumes.')
-
-        form.addParam('skipUMAP', params.BooleanParam, default=False,
-                      label='Skip UMAP', expertLevel=params.LEVEL_ADVANCED,
-                      help='Skip running UMAP on latents.')
-
-        form.addParam('imageSize', params.IntParam, default=224,
-                      label='Image Size', expertLevel=params.LEVEL_ADVANCED,
-                      help='Set the size of image.')
-
-        form.addParam('deform', params.BooleanParam, default=False,
-                      label="Use zTemplate?", expertLevel=params.LEVEL_ADVANCED)
-
-        form.addParam('zTemplate', params.StringParam,
-                      condition='deform', label="zTemplate", expertLevel=params.LEVEL_ADVANCED,
-                      help="Path for template encoding when deforming the structure is required.")
-
-        form.addParam('zTemplateIndex', params.IntParam, default=20,
-                      condition='deform', label="zTemplate Index", expertLevel=params.LEVEL_ADVANCED,
-                      help="Path for template encoding when deforming the structure is required.")
+                           "subsequent generation of volumes. ksamples mod zDim must be 0.")
 
         form.addHidden(params.GPU_LIST, params.StringParam, default='0',
                        label="Choose GPU IDs",
@@ -207,98 +125,96 @@ class OpusDsdProtAnalyze(ProtProcessParticles,ProtFlexBase):
         shutil.copytree(self._getFileName('workTrainDir'), self._getExtra())
         shutil.move(self._getExtra() + '/run.log', self._getWorkDir() + '/run.log')
         initEpoch = os.path.basename(self._getWorkDir()).split('.')[1]
+        zDim = self._getOpusDSDTrainingProtocol().zDim
 
-        self._insertFunctionStep(self.runAnalysisStep, initEpoch)
-        self._insertFunctionStep(self.runEvalVolStep, initEpoch)
-        self._insertFunctionStep(self.createOutputStep, initEpoch)
+        self._insertFunctionStep(self.runAnalysisStep, initEpoch, zDim)
+        self._insertFunctionStep(self.runEvalVolStep, initEpoch, zDim)
+        self._insertFunctionStep(self.createOutputStep, initEpoch, zDim)
 
     # --------------------------- STEPS functions -----------------------------
 
-    def runAnalysisStep(self, initEpoch):
+    def runAnalysisStep(self, initEpoch, zDim):
         """ Call OPUS-DSD with the appropriate parameters to analyze """
         poseDir = self._getWorkDir() + f'/pose.{initEpoch}.pkl'
 
         args = self._getWorkDir()
         args += ' %d ' % int(initEpoch)
         args += '--outdir %s ' % self._out(initEpoch)
-
-        if self.skipVol:
-            args += '--skip-vol '
-
-        if self.skipUMAP:
-            args += '--skip-umap '
-
         args += '--vanilla '
-        args += '--D %d ' % self.imageSize
+        args += '--D %d ' % self._getBoxSize()
         args += '--pose %s ' % poseDir
 
-        if self.Apix.get() != -1:
-            args += '--Apix %f ' % self.Apix.get()
-        else:
-            args += '--Apix %f ' % self._getInputParticles().getSamplingRate()
+        #When computing the encoder, we need a new Apix for asserting equal shapes on convolutional matrices
+        downFrac = self._getOpusDSDTrainingProtocol().downFrac
+        render_size = (int(float(self._getBoxSize()) * float(downFrac)) // 2) * 2
+        newApix = self._getInputParticles().getSamplingRate() * self._getBoxSize() / render_size
+        args += '--Apix %f ' % round(newApix, 2)
 
         args += '--pc %d ' % self.numPCs
-        args += '--ksample %d ' % self.ksamples
-        args += '--psample %d' % self.psamples
+        if self.ksamples.get() % int(zDim) == 0:
+            args += '--ksample %d ' % self.ksamples
+        else:
+            raise ValueError("Error while asserting, ksamples mod zDim (selected in previous training must be 0, "
+                             "please change ksamples accordingly")
+
+        if self.psamples.get() % int(zDim) == 0:
+            args += '--psample %d' % self.psamples
+        else:
+            raise ValueError("Error while asserting, psamples mod zDim (selected in previous training must be 0, "
+                             "please change psamples accordingly")
 
         self._runProgram('analyze', args)
 
-    def runEvalVolStep(self, initEpoch):
+    def runEvalVolStep(self, initEpoch, zDim):
         """ Call OPUS-DSD with the appropriate parameters to analyze """
-        config = self._getExtra() + '/config.pkl'
-        zFile = self._out(initEpoch, self._getFileName('z_N_pc', PC=self.PC.get()))
+        weights = self._getWorkDir() + f'/weights.{initEpoch}.pkl'
+        weightsNew = self._getWorkDir() + f'/weights_new.{initEpoch}.pkl'
+        self.runJob(Plugin.getTorchLoadProgram(self._getWorkDir(), weights, weightsNew, 'weights'), '')
 
-        args = '--config %s ' % config
+        config = self._getExtra() + '/config.pkl'
+        if self.sampleMode.get() == PCA:
+            zFile = self._out(initEpoch, self._getFileName('z_valuesN_pc', PC=self.PC.get()))
+        elif self.sampleMode.get() == KMEANS:
+            zFile = self._out(initEpoch, self._getFileName('z_valuesN_km', ksamples=self.ksamples.get()))
+
+        if os.path.exists(weightsNew):
+            args = '--load %s ' % weightsNew
+        else:
+            args = '--load $s ' % weights
+
+        args += '--config %s ' % config
 
         if self.sampleMode.get() == KMEANS:
             args += '-o %s ' % self._out(initEpoch, 'kmeans%d') % self.ksamples.get()
-        elif self.sampleMode.get() == PCS:
+        elif self.sampleMode.get() == PCA:
             args += '-o %s ' % self._out(initEpoch, 'pc%d') % self.PC.get()
 
         args += '--prefix vol_ '
-
-        if self.skipVol:
-            args += '--zfile %s ' % zFile
-
-        if self.deform:
-            args += '--deform '
-            args += '--template-z %s ' % self.zTemplate
-            args += '--template-z-ind %d ' % self.zTemplateIndex
-
+        args += '--zfile %s ' % zFile
         args += '--num-bodies 0 '
 
-        if self.Apix.get() != -1:
-            args += '--Apix %f ' % self.Apix.get()
-        else:
-            args += '--Apix %f ' % self._getInputParticles().getSamplingRate()
+        # When computing the encoder, we need a new Apix for asserting equal shapes on convolutional matrices
+        downFrac = self._getOpusDSDTrainingProtocol().downFrac
+        render_size = (int(float(self._getBoxSize()) * float(downFrac)) // 2) * 2
+        newApix = self._getInputParticles().getSamplingRate() * self._getBoxSize() / render_size
+        args += '--Apix %f ' % round(newApix, 2)
 
-        if self.downSampling:
-            args += '--downsample %d ' % self.downSample
-
-        if self.boxSize.get() != -1:
-            args += '-D %d ' % self.boxSize.get()
-        else:
-            args += '-D %d ' % self._getBoxSize()
-
-        args += '--enc-layers %d ' % self.qLayers
-        args += '--enc-dim %d ' % self.qDim
-
-        if len(np.loadtxt(zFile)) % self.zDim.get() != 0:
-            self.zDim = self._fixZDim(zFile, self.zDim.get())
-
-        args += '--zdim %d ' % self.zDim
+        args += '--enc-layers %d ' % self._getOpusDSDTrainingProtocol().qLayers
+        args += '--enc-dim %d ' % self._getOpusDSDTrainingProtocol().qDim
+        args += '--zdim %d ' % int(zDim)
         args += '--encode-mode grad '
-        args += '--dec-layers %d ' % self.pLayers
-        args += '--dec-dim %d ' % self.pDim
+        args += '--dec-layers %d ' % self._getOpusDSDTrainingProtocol().pLayers
+        args += '--dec-dim %d ' % self._getOpusDSDTrainingProtocol().pDim
         args += '--pe-type vanilla '
         args += '--template-type conv '
         args += '--activation relu'
 
         self._runProgram('eval_vol', args)
 
-    def createOutputStep(self, initEpoch):
+    def createOutputStep(self, initEpoch, zDim):
         """ Create the protocol outputs. """
         weights = self._getWorkDir() + f'/weights.{initEpoch}.pkl'
+        weightsNew = self._getWorkDir() + f'/weights_new.{initEpoch}.pkl'
         config = self._getExtra() + '/config.pkl'
 
         # Creating a set of particles with z_values
@@ -317,7 +233,11 @@ class OpusDsdProtAnalyze(ProtProcessParticles,ProtFlexBase):
             outParticle.setZFlex(list(zValue))
             outSet.append(outParticle)
 
-        outSet.getFlexInfo().setAttr(WEIGHTS, pwobj.String(weights))
+        if os.path.exists(weightsNew):
+            outSet.getFlexInfo().setAttr(WEIGHTS, pwobj.String(weightsNew))
+        else:
+            outSet.getFlexInfo().setAttr(WEIGHTS, pwobj.String(weights))
+
         outSet.getFlexInfo().setAttr(CONFIG, pwobj.String(config))
 
         self._defineOutputs(outputParticles=outSet)
@@ -325,7 +245,7 @@ class OpusDsdProtAnalyze(ProtProcessParticles,ProtFlexBase):
 
         # Creating a set of volumes with z_values depending on the sampleMode
         fn = self._getExtra('volumes.sqlite')
-        files, zValues = self._getVolumesZCalc(sampleMode=PCS, initEpoch=initEpoch)
+        files, zValues = self._getVolumesZCalc(sampleMode=self.sampleMode.get(), initEpoch=initEpoch, zDim=zDim)
         if self.Apix.get() != -1:
             volSet = self._createVolumeZSet(files, zValues, fn,
                                             params.Float(self.Apix.get()))
@@ -339,7 +259,16 @@ class OpusDsdProtAnalyze(ProtProcessParticles,ProtFlexBase):
     # --------------------------- INFO functions ------------------------------
 
     def _summary(self):
-        summary = ["Analyzing results for %d epochs." % self.numEpochs]
+        initEpoch = os.path.basename(self._getWorkDir()).split('.')[1]
+        zDim = self._getOpusDSDTrainingProtocol().zDim
+
+        summary = ["Analyzing results for the %d epoch." % int(initEpoch)]
+        if self.sampleMode.get() == PCA:
+            summary += ["Number of volumes to generate when PCA is running is of a total of "
+                        f"{int(self.numPCs.get() * self.psamples.get() / int(zDim))}"]
+        elif self.sampleMode.get() == KMEANS:
+            summary += ["Number of volumes to generate when KMEANS is running is of a total of "
+                        f"{int(4 * self.ksamples.get() / int(zDim))}"]
 
         return summary
 
@@ -379,12 +308,11 @@ class OpusDsdProtAnalyze(ProtProcessParticles,ProtFlexBase):
         """
         zEpochFile = self._getWorkDir() + f'/z.{initEpoch}.pkl'
         zEpochFileNew = self._getWorkDir() + '/output_file'
-        self.runJob(Plugin.getTorchLoadProgram(self._getWorkDir(), zEpochFile, zEpochFileNew), '')
+        self.runJob(Plugin.getTorchLoadProgram(self._getWorkDir(), zEpochFile, zEpochFileNew, 'pkl'), '')
 
     def _getParticlesZvalues(self, initEpoch):
         """
         Read from z.npz file the particles z_values
-        :return: a numpy array with the particles z_values
         """
         zEpochFileNpz = self._getWorkDir() + '/output_file.npz'
         self._setParticlesZValues(initEpoch)
@@ -394,79 +322,44 @@ class OpusDsdProtAnalyze(ProtProcessParticles,ProtFlexBase):
     def _getVolumeZvalues(self, zValueFile):
         """
         Read from z_values.txt file the volume z_values
-        :return: a list with the volumes z_values
         """
         return np.loadtxt(zValueFile, dtype=float).tolist()
 
-    def _getVolumesZCalc(self, sampleMode, initEpoch):
+    def _getVolumesZCalc(self, sampleMode, initEpoch, zDim):
         """ Returns a list of volume names and their zValues. """
         vols = []
         zValues = []
-        if not self.skipVol:
-            if self._hasMultLatentVars():
-                if sampleMode == KMEANS:
-                    fn = 'output_volN_km'
-                    ksamples = self.ksamples.get()
-                    zValue = 'z_valuesN_km'
-                    zValues.extend(self._getVolumeZvalues(self._out(initEpoch, self._getFileName(zValue, ksamples=ksamples))))
-                    for volId in range(ksamples):
-                        volFn = self._out(initEpoch, self._getFileName(fn, ksamples=ksamples, id=volId))
-                        vols = self._appendVolumes(vols, volFn)
+        if self._hasMultLatentVars():
+            if sampleMode == KMEANS:
+                fn = 'output_volN_km'
+                ksamples = self.ksamples.get()
+                zValue = 'z_valuesN_km'
+                zValues.extend(self._getVolumeZvalues(self._out(initEpoch, self._getFileName(zValue, ksamples=ksamples))))
+                for volId in range(int(4 * ksamples / int(zDim))):
+                    volFn = self._out(initEpoch, self._getFileName(fn, ksamples=ksamples, id=volId))
+                    vols = self._appendVolumes(vols, volFn)
 
-                else:
-                    fn = 'output_volN_pc'
-                    zValue = 'z_valuesN_pc'
-                    PC = self.PC.get()
-                    numPCs = self.numPCs.get()
-                    zValues.extend(self._getVolumeZvalues(self._out(initEpoch, self._getFileName(zValue, PC=PC))))
-                    for volId in range(numPCs):
-                        volFn = self._out(initEpoch, self._getFileName(fn, PC=PC, id=volId))
-                        vols = self._appendVolumes(vols, volFn)
-            else:
-                fn = 'output_vol'
-                zValue = 'z_values'
-                zValues.extend(self._getVolumeZvalues(self._out(initEpoch, self._getFileName(zValue))))
-                volFn = self._out(initEpoch, self._getFileName(fn, id=0))
-                vols = self._appendVolumes(vols, volFn)
-
+            elif sampleMode == PCA:
+                fn = 'output_volN_pc'
+                zValue = 'z_valuesN_pc'
+                PC = self.PC.get()
+                psamples = self.psamples.get()
+                numPCs = self.numPCs.get()
+                zValues.extend(self._getVolumeZvalues(self._out(initEpoch, self._getFileName(zValue, PC=PC))))
+                for volId in range(int(numPCs * psamples / int(zDim))):
+                    volFn = self._out(initEpoch, self._getFileName(fn, PC=PC, id=volId))
+                    vols = self._appendVolumes(vols, volFn)
         else:
-            if self._hasMultLatentVars():
-                if sampleMode == KMEANS:
-                    print('ERROR: z_values for KMEANS sample mode were not generated. Skipping to PC sample mode...')
-                    fn = 'output_volN_pc'
-                    zValue = 'z_N_pc'
-                    PC = self.PC.get()
-                    numPCs = self.numPCs.get()
-                    zValues.extend(self._getVolumeZvalues(self._out(initEpoch, self._getFileName(zValue, PC=PC))))
-                    for volId in range(numPCs):
-                        volFn = self._out(initEpoch, self._getFileName(fn, PC=PC, id=volId))
-                        vols = self._appendVolumes(vols, volFn)
-
-                else:
-                    fn = 'output_volN_pc'
-                    zValue = 'z_N_pc'
-                    PC = self.PC.get()
-                    numPCs = self.numPCs.get()
-                    zValues.extend(self._getVolumeZvalues(self._out(initEpoch, self._getFileName(zValue, PC=PC))))
-                    for volId in range(numPCs):
-                        volFn = self._out(initEpoch, self._getFileName(fn, PC=PC, id=volId))
-                        vols = self._appendVolumes(vols, volFn)
-            else:
-                fn = 'output_vol'
-                zValue = 'z_values'
-                zValues.extend(self._getVolumeZvalues(self._out(initEpoch, self._getFileName(zValue))))
-                volFn = self._out(initEpoch, self._getFileName(fn, id=0))
-                vols = self._appendVolumes(vols, volFn)
+            fn = 'output_vol'
+            zValue = 'z_values'
+            zValues.extend(self._getVolumeZvalues(self._out(initEpoch, self._getFileName(zValue))))
+            volFn = self._out(initEpoch, self._getFileName(fn, id=0))
+            vols = self._appendVolumes(vols, volFn)
         return vols, zValues
 
     def _createVolumeZSet(self, files, zValues, path, samplingRate, updateItemCallback=None):
         """
         Create a set of volume with the associated z_values
-        :param files: list of the volumes path
-        :param zValues: list with the volumes z_values
-        :param path: output path
-        :param samplingRate: volumes sampling rate
-        :return: a set of volumes
         """
         pwutils.cleanPath(path)
         volSet = emobj.SetOfVolumes(filename=path)
@@ -491,7 +384,7 @@ class OpusDsdProtAnalyze(ProtProcessParticles,ProtFlexBase):
         return volSet
 
     def _hasMultLatentVars(self):
-        return self.zDim > 1
+        return int(self._getOpusDSDTrainingProtocol().zDim) > 1
 
     def _appendVolumes(self, vols, volFn):
         if os.path.exists(volFn):
@@ -502,10 +395,3 @@ class OpusDsdProtAnalyze(ProtProcessParticles,ProtFlexBase):
 
     def _getOpusDSDTrainingProtocol(self):
         return self.opusDSDTrainingProtocol.get()
-
-    def _fixZDim(self, zFile, zDim):
-        # In case zDim isn't a multiple of z size, we correct it so that its reshaping works.
-        zSize = len(np.loadtxt(zFile))
-        while zSize % zDim != 0:
-            zDim = zDim - 1
-        return zDim

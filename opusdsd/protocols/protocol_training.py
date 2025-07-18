@@ -28,15 +28,12 @@
 # **************************************************************************
 import os, shutil
 import pickle
-
 from pwem.constants import ALIGN_PROJ, ALIGN_NONE
 import pyworkflow.utils as pwutils
 import pyworkflow.protocol.params as params
 from pyworkflow.plugin import Domain
 from pyworkflow.constants import PROD
-
 from pwem.protocols import ProtProcessParticles, ProtFlexBase
-
 from .. import Plugin
 
 convertR = Domain.importFromPlugin('relion.convert', doRaise=True)
@@ -55,6 +52,7 @@ class OpusDsdProtTrain(ProtProcessParticles, ProtFlexBase):
         """ Centralize how files are called within the protocol. """
         myDict = {
             'input_parts': self._getExtra('input_particles.star'),
+            'input_volume': self._getExtra('input_volume.mrc'),
             'input_mask': self._getExtra('input_mask.mrc'),
             'output_poses': self._getExtra('poses.pkl'),
             'output_ctfs': self._getExtra('ctfs.pkl'),
@@ -77,15 +75,64 @@ class OpusDsdProtTrain(ProtProcessParticles, ProtFlexBase):
                       pointerClass="SetOfParticles, SetOfParticlesFlex",
                       label='Input Particles')
 
-        form.addParam('inputMask', params.PointerParam, pointerClass='VolumeMask',
-                       label="Input Mask",
-                       help="The suggestion is to use a solvent mask created from a volume (or a given one). "
-                            "If it isn't given, it must be calculated from the volume given, which will be necessary. "
-                            "The program will focus on fitting the contents inside the mask (more specifically, "
-                            "the 2D projection of a 3D mask). Since the majority part of image doesn't contain "
-                            "electron density, using the original image size is wasteful, by specifying a mask, "
-                            "our program will automatically determine a suitable crop rate "
-                            "to keep only the region with densities.")
+        form.addParam('abInitio', params.BooleanParam, label="Ab-Initio condition",
+                      help="If preprocess data is required, set to yes, if training data is required, set to no.")
+
+        group = form.addGroup('Ab-Initio', condition='abInitio==%s' % True)
+        group.addParam('useMask', params.BooleanParam, condition='abInitio==%s' % True, default=False,
+                      label='Importing mask?',
+                      help='If mask can be imported, set to yes, if not, set to no for mask creation from'
+                           'a mandatory imported volume.')
+
+        group.addParam('inputVolume', params.PointerParam, pointerClass='Volume', condition='useMask==%s' % False,
+                      label='Input Volume',
+                      help="The suggestion is to use a solvent mask created from this alrady provided volume. "
+                           "Then, the program will focus on fitting the contents inside the created mask "
+                           "(more specifically, the 2D projection of a 3D mask). Since the majority part of the "
+                           "image doesn't contain electron density, using the original image size is wasteful. "
+                           "By specifying a mask, our program will automatically determine a suitable crop rate "
+                           "to keep only the region with densities.")
+
+        group.addParam('threshold', params.FloatParam, default=0.008, condition='useMask==%s' % False,
+                      label='Initial binarisation threshold',
+                      expertLevel=params.LEVEL_ADVANCED,
+                      help="This threshold is used to make an initial binary "
+                           "mask from the average of the two unfiltered "
+                           "half-reconstructions. If you don't know what "
+                           "value to use, display one of the unfiltered "
+                           "half-maps in a 3D surface rendering viewer and "
+                           "find the lowest threshold that gives no noise "
+                           "peaks outside the reconstruction.")
+
+        group.addParam('extend', params.IntParam, default=2, condition='useMask==%s' % False,
+                      label='Extend binary mask by (px)',
+                      expertLevel=params.LEVEL_ADVANCED,
+                      help='The initial binary mask is extended this number of '
+                           'pixels in all directions.')
+
+        group.addParam('edge', params.IntParam, default=6, condition='useMask==%s' % False,
+                      label='Add a soft-edge (px)',
+                      expertLevel=params.LEVEL_ADVANCED,
+                      help='The extended binary mask is further extended with '
+                           'a raised-cosine soft edge of the specified width.')
+
+        group.addParam('inputMask', params.PointerParam, pointerClass='VolumeMask',
+                      condition='useMask==%s' % True,
+                      label="Input Mask",
+                      help="The suggestion is to use an already given solvent mask. "
+                           "If it isn't given, it must be calculated from the volume given, which will be necessary. "
+                           "The program will focus on fitting the contents inside the mask (more specifically, "
+                           "the 2D projection of a 3D mask). Since the majority part of the image doesn't contain "
+                           "electron density, using the original image size is wasteful. By specifying a mask, "
+                           "our program will automatically determine a suitable crop rate "
+                           "to keep only the region with densities.")
+
+        form.addParam('opusDSDTrainingProtocol', params.PointerParam,
+                       condition='abInitio==%s' % False,
+                       pointerClass='OpusDsdProtTrain',
+                       label="Opus-DSD training protocol",
+                       help="Previously executed 'opusdsd training'. "
+                            "This will allow to load the necessary results the previous protocol achieved to get")
 
         form.addParam('Apix', params.FloatParam, default=-1,
                       label='Pixel size in A/pix',
@@ -96,24 +143,11 @@ class OpusDsdProtTrain(ProtProcessParticles, ProtFlexBase):
                       help='If left as -1, box size will be the same as the dimensions of the input particles.')
 
         form.addSection(label='Training')
-
-        group = form.addGroup('Protocols')
-        group.addParam('abInitio', params.BooleanParam, default=True,
-                       label="Ab-Initio condition",
-                       help="If preprocess data is required, set to yes, if training data is required, set to no.")
-
-        group.addParam('opusDSDTrainingProtocol', params.PointerParam,
-                       condition='abInitio==%s' % False,
-                       pointerClass='OpusDsdProtTrain',
-                       label="Opus-DSD training protocol",
-                       help="Previously executed 'opusdsd training'. "
-                            "This will allow to load the necessary results the previous protocol achieved to get")
-
         form.addParam('multiBody', params.BooleanParam, default=False,
-                       label="Multi-Body Training",
-                       expertLevel=params.LEVEL_ADVANCED,
-                       help="If set to yes, a multi-body training will be performed, if set to no, then a single-body"
-                            "training will be performed.")
+                      label="Multi-Body Training",
+                      expertLevel=params.LEVEL_ADVANCED,
+                      help="If set to yes, a multi-body training will be performed, if set to no, then a single-body"
+                           "training will be performed.")
 
         form.addParam('numEpochs', params.IntParam, default=20,
                       label='Number of epochs',
@@ -124,7 +158,7 @@ class OpusDsdProtTrain(ProtProcessParticles, ProtFlexBase):
                            'Even for non-ab-initio cases, the number of epochs should be left the same as previous '
                            'trainings.')
 
-        form.addParam('zDim', params.IntParam, default=10,
+        form.addParam('zDim', params.IntParam, default=12,
                       validators=[params.Positive],
                       label='Dimension of latent variable',
                       help='It is recommended to first train on lower '
@@ -148,7 +182,7 @@ class OpusDsdProtTrain(ProtProcessParticles, ProtFlexBase):
                        label='Number of nodes in hidden layers of the decoder',
                        expertLevel=params.LEVEL_ADVANCED)
 
-        form.addSection(label='Advanced')
+        form.addSection(label='Network parameters')
         form.addParam('batchSize', params.IntParam, default=8,
                       label='Batch size',
                       expertLevel=params.LEVEL_ADVANCED,
@@ -159,13 +193,13 @@ class OpusDsdProtTrain(ProtProcessParticles, ProtFlexBase):
                       expertLevel=params.LEVEL_ADVANCED,
                       help='Weight decay in Adam optimizer.')
 
-        form.addParam('betaControl', params.FloatParam, default=2.,
+        form.addParam('betaControl', params.FloatParam, default=1.,
                       label='Beta restraint strength for KL target',
                       expertLevel=params.LEVEL_ADVANCED,
                       help='Beta parameter that controls the strength of the beta-VAE prior. The larger '
                            'the argument, the stronger the strength of the standard Gaussian restraint.')
 
-        form.addParam('lamb', params.FloatParam, default=1.,
+        form.addParam('lamb', params.FloatParam, default=0.5,
                       label='Restraint strength for umap prior',
                       expertLevel=params.LEVEL_ADVANCED,
                       help='This controls the stretch of the UMAP-inspired prior for '
@@ -180,7 +214,7 @@ class OpusDsdProtTrain(ProtProcessParticles, ProtFlexBase):
                            'values between [3.,6.]. You may consider using higher values for more dynamic '
                            'structures.')
 
-        form.addParam('learningRate', params.FloatParam, default=1e-5,
+        form.addParam('learningRate', params.FloatParam, default=1e-4,
                       label='Learning rate', expertLevel=params.LEVEL_ADVANCED,
                       help='Learning rate in Adam optimizer.')
 
@@ -195,7 +229,7 @@ class OpusDsdProtTrain(ProtProcessParticles, ProtFlexBase):
                       help='Define the output size of 3d volume of the convolutional network. You may keep it '
                            'around D*downFrac/0.75, which is larger than the input size.')
 
-        form.addParam('downFrac', params.FloatParam, default=0.25,
+        form.addParam('downFrac', params.FloatParam, default=0.75,
                       expertLevel=params.LEVEL_ADVANCED,
                       label='Downsampling fraction',
                       help='Downsample to this fraction of original size. You can set it according to '
@@ -240,8 +274,22 @@ class OpusDsdProtTrain(ProtProcessParticles, ProtFlexBase):
 
         # Create links to binary files and write the .mrc file
         maskFilename = self._getFileName('input_mask')
-        inMask = self._getInputMask().getFileName()
-        shutil.copy(inMask, maskFilename)
+        if self.useMask:
+            inMask = self._getInputMask().getFileName()
+            shutil.copy(inMask, maskFilename)
+        else:
+            volFilename = self._getFileName('input_volume')
+            inVol = self._getInputVolume().getFileName()
+            shutil.copy(inVol, volFilename)
+
+            args = '--i %s ' % volFilename
+            args += '--o %s ' % maskFilename
+            args += '--ini_threshold %f ' % self.threshold
+            args += '--extend_inimask %d ' % self.extend
+            args += '--width_soft_edge %d ' % self.edge
+            args += '--angpix %f' % self._getInputVolume().getSamplingRate()
+
+            self._runProgram('relion_mask_create', args, fromRelion=True)
 
     def runParseMdStep(self):
         # Creating both poses and ctfs files for training and evaluation
@@ -265,8 +313,8 @@ class OpusDsdProtTrain(ProtProcessParticles, ProtFlexBase):
             args += '--outdir %s' % self._getExtra()
             self._runProgram('parse_pose_star', args)
         else:
-            #args += '--masks %s ' % self.masks
-            #args += '--outmasks %s ' % self._getExtra()
+            # args += '--masks %s ' % self.masks
+            # args += '--outmasks %s ' % self._getExtra()
             self._runProgram('parse_multi_pose_star', args)
 
         self._fixPosesTranslations()
@@ -319,7 +367,7 @@ class OpusDsdProtTrain(ProtProcessParticles, ProtFlexBase):
         outputPoses = self._getExtra('poses.pkl')
         args += '--poses %s ' % outputPoses
 
-        #if self.multiBody:
+        # if self.multiBody:
         #    args += '--masks %s ' % mask_params
 
         outputCtfs = self._getExtra('ctfs.pkl')
@@ -398,6 +446,9 @@ class OpusDsdProtTrain(ProtProcessParticles, ProtFlexBase):
     def _getInputParticles(self):
         return self.inputParticles.get()
 
+    def _getInputVolume(self):
+        return self.inputVolume.get()
+
     def _getInputMask(self):
         return self.inputMask.get()
 
@@ -411,9 +462,12 @@ class OpusDsdProtTrain(ProtProcessParticles, ProtFlexBase):
         workDir = [dir for dir in os.listdir(self._getExtra()) if dir.startswith('Results')][0]
         return self._getExtra(workDir)
 
-    def _runProgram(self, program, args, fromCryodrgn=True):
+    def _runProgram(self, program, args, fromRelion=False):
         gpus = ','.join(str(i) for i in self.getGpuList())
-        self.runJob(Plugin.getProgram(program, gpus, fromCryodrgn=fromCryodrgn), args)
+        if not fromRelion:
+            self.runJob(Plugin.getProgram(program, gpus, fromCryodrgn=True), args)
+        else:
+            self.runJob(Plugin.getRelionProgram(program), args)
 
     def _inputHasAlign(self):
         return self._getInputParticles().hasAlignmentProj()

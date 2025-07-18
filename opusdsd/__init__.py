@@ -131,31 +131,42 @@ class Plugin(pwem.Plugin):
     @classmethod
     def getProgram(cls, program, gpus='0', fromCryodrgn=True):
         """ Create Opus-DSD command line. """
-
         fullProgram = 'cd %s && %s && CUDA_VISIBLE_DEVICES=%s ' % (cls.getVar(OPUSDSD_HOME), cls.getActivationCmd(), gpus)
-
         if fromCryodrgn:
             fullProgram += 'python -m cryodrgn.commands.%s' % program
         else:
             fullProgram += 'sh %s/%s.sh' % (cls.getVar(OPUSDSD_HOME), program)
-
         return fullProgram
 
     @classmethod
-    def getTorchLoadProgram(cls, workDir, file, output_file):
+    def getTorchLoadProgram(cls, workDir, file, output_file, option):
         """ Import Torch Load Program for Opus-DSD command line. """
-
         fullProgram = (
             f'cd {workDir} && {cls.getActivationCmd()} && '
             'python -c "'
             'import torch; '
             'import numpy as np; '
             f'data = torch.load(\'{file}\'); '
-            'npdata = {k: v.numpy() if hasattr(v, \'numpy\') else v for k, v in data.items()}; '
-            f'np.savez(\'{output_file + ".npz"}\', **npdata); '
-            f'np.savetxt(\'{output_file + ".txt"}\', npdata[list(npdata.keys())[0]])"'
         )
+        if option == 'pkl':
+            fullProgram += (
+                'npdata = {k: v.numpy() if hasattr(v, \'numpy\') else v for k, v in data.items()}; '
+                f'np.savez(\'{output_file + ".npz"}\', **npdata); '
+                f'np.savetxt(\'{output_file + ".txt"}\', npdata[list(npdata.keys())[0]])"'
+            )
+        elif option == 'weights':
+            fullProgram += (
+                'in_mask_param = data[\'model_state_dict\'][\'encoder.in_mask\']; '
+                'in_mask_param = in_mask_param.squeeze(1); '
+                'data[\'model_state_dict\'][\'encoder.in_mask\'] = in_mask_param; '
+                f'torch.save(data, \'{output_file}\')"'
+            )
+        return fullProgram
 
+    @classmethod
+    def getRelionProgram(cls, program):
+        """ Import Relion Program. """
+        fullProgram = 'cd %s && cd bin/ && ./%s' % (cls.getVar(RELION_HOME), program)
         return fullProgram
 
     @classmethod

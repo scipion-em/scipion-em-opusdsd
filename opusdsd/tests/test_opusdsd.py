@@ -111,6 +111,7 @@ class TestOpusDsd(BaseTest):
     def testTrainingAnalysis(self):
         print(magentaStr("\n==> Testing OPUS-DSD - Training Ab-Initio:"))
         protTrain = self.newProtocol(OpusDsdProtTrain,
+                                     useMask=True,
                                      abInitio=True,
                                      numEpochs=20,
                                      zDim=12)
@@ -121,12 +122,8 @@ class TestOpusDsd(BaseTest):
         print(magentaStr("\n==> Testing OPUS-DSD - Analysis:"))
         protAnalysis = self.newProtocol(OpusDsdProtAnalyze,
                                         zDim=12,
-                                        numEpochs=20,
-                                        sampleMode=PCS,
+                                        sampleMode=PCA,
                                         PC=4)
-
-        self.assertEqual(protTrain.numEpochs, protAnalysis.numEpochs, "Number of epochs for analysis must be "
-                                                                      "equal as for training.")
 
         protAnalysis.inputParticles.set(self.protPartSubset.outputParticles)
         protAnalysis.opusDSDTrainingProtocol.set(protTrain)
