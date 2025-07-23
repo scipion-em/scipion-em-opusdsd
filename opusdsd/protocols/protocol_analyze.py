@@ -153,13 +153,13 @@ class OpusDsdProtAnalyze(ProtProcessParticles,ProtFlexBase):
         if self.ksamples.get() % int(zDim) == 0:
             args += '--ksample %d ' % self.ksamples
         else:
-            raise ValueError("Error while asserting, ksamples mod zDim (selected in previous training must be 0, "
+            raise ValueError("Error while asserting, ksamples mod zDim (selected in previous training) must be 0, "
                              "please change ksamples accordingly")
 
         if self.psamples.get() % int(zDim) == 0:
             args += '--psample %d' % self.psamples
         else:
-            raise ValueError("Error while asserting, psamples mod zDim (selected in previous training must be 0, "
+            raise ValueError("Error while asserting, psamples mod zDim (selected in previous training) must be 0, "
                              "please change psamples accordingly")
 
         self._runProgram('analyze', args)

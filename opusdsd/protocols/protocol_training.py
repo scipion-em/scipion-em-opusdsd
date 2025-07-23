@@ -445,7 +445,13 @@ class OpusDsdProtTrain(ProtProcessParticles, ProtFlexBase):
         args += '--lr %f ' % self.learningRate
         args += '--accum-step %d ' % self.accumStep
         args += '--lamb %f ' % self.lamb
-        args += '--downfrac %f ' % self.downFrac
+
+        if self.downFrac.get() * (self._getBoxSize() - 1) >= 128:
+            args += '--downfrac %f ' % self.downFrac
+        else:
+            raise ValueError("Error while asserting, please change the downsampling factor accordingly, as "
+                             "the product between the factor and the original size of the particles are not above 128")
+
         args += '--templateres %d ' % self.templateres
         args += '--bfactor %f ' % self.bfactor
         args += '--beta cos '
