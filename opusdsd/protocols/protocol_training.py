@@ -35,6 +35,7 @@ from pyworkflow.plugin import Domain
 from pyworkflow.constants import PROD
 from pwem.protocols import ProtProcessParticles, ProtFlexBase
 from .. import Plugin
+from ..constants import *
 
 convertR = Domain.importFromPlugin('relion.convert', doRaise=True)
 
@@ -52,9 +53,11 @@ class OpusDsdProtTrain(ProtProcessParticles, ProtFlexBase):
         """ Centralize how files are called within the protocol. """
         myDict = {
             'input_parts': self._getExtra('input_particles.star'),
+            'input_multiparts': self._getExtra('input_multiparticles.star'),
             'input_volume': self._getExtra('input_volume.mrc'),
             'input_mask': self._getExtra('input_mask.mrc'),
             'output_poses': self._getExtra('poses.pkl'),
+            'input_multimask': self._getExtra('input_multimask_%(mask)d.mrc'),
             'output_ctfs': self._getExtra('ctfs.pkl'),
         }
         self._updateFilenamesDict(myDict)
@@ -143,11 +146,23 @@ class OpusDsdProtTrain(ProtProcessParticles, ProtFlexBase):
                       help='If left as -1, box size will be the same as the dimensions of the input particles.')
 
         form.addSection(label='Training')
-        form.addParam('multiBody', params.BooleanParam, default=False,
-                      label="Multi-Body Training",
-                      expertLevel=params.LEVEL_ADVANCED,
-                      help="If set to yes, a multi-body training will be performed, if set to no, then a single-body"
-                           "training will be performed.")
+        group = form.addGroup('Multi-Body Training')
+        group.addParam('multiBody', params.BooleanParam, default=False,
+                       label="Multi-Body Training?",
+                       help="If set to yes, a multi-body training will be performed, if set to no, then a single-body"
+                            "training will be performed.")
+
+        group.addParam('multiMasks', params.MultiPointerParam, pointerClass='VolumeMask',
+                      condition='multiBody==%s' % True,
+                      label='Multibody Masks',
+                      help='Input of multiple masks of different bodies of the same input volume. Important for '
+                           'later creation of a necessary star file for multi-body training.')
+
+        group.addParam('zAffDim', params.IntParam, default=4,
+                      condition='multiBody==%s ' % True,
+                      validators=[params.Positive],
+                      label='Dimension of latent variable for dynamics',
+                      help='It is recommended to just set to default in case you are not sure what to type.')
 
         form.addParam('numEpochs', params.IntParam, default=20,
                       label='Number of epochs',
@@ -163,8 +178,8 @@ class OpusDsdProtTrain(ProtProcessParticles, ProtFlexBase):
                       label='Dimension of latent variable',
                       help='It is recommended to first train on lower '
                            'resolution images (e.g. D=128) with '
-                           '--zdim 1 and with --zdim 10 using the '
-                           'default architecture (fast). Values between [1, 10].')
+                           '--zdim 1 and with --zdim 12 using the '
+                           'default architecture (fast). Values between [1, 12].')
 
         group = form.addGroup('Encoder', expertLevel=params.LEVEL_ADVANCED)
         group.addParam('qLayers', params.IntParam, default=3,
@@ -185,7 +200,6 @@ class OpusDsdProtTrain(ProtProcessParticles, ProtFlexBase):
         form.addSection(label='Network parameters')
         form.addParam('batchSize', params.IntParam, default=8,
                       label='Batch size',
-                      expertLevel=params.LEVEL_ADVANCED,
                       help='Batch size for processing images.')
 
         form.addParam('weightDecay', params.FloatParam, default=0.0,
@@ -214,12 +228,16 @@ class OpusDsdProtTrain(ProtProcessParticles, ProtFlexBase):
                            'values between [3.,6.]. You may consider using higher values for more dynamic '
                            'structures.')
 
-        form.addParam('learningRate', params.FloatParam, default=1e-4,
-                      label='Learning rate', expertLevel=params.LEVEL_ADVANCED,
+        form.addParam('learningRate', params.FloatParam, default=2e-4,
+                      label='Learning rate',
                       help='Learning rate in Adam optimizer.')
 
+        form.addParam('accumStep', params.IntParam, default=4,
+                      label='Gradient accumulation', expertLevel=params.LEVEL_ADVANCED,
+                      help='Gradient accumulation step for optimizer to increase the effective batch size. Best when '
+                           'working with one gpu.')
+
         form.addParam('valFrac', params.FloatParam, default=0.2,
-                      expertLevel=params.LEVEL_ADVANCED,
                       label='Validation image fraction',
                       help='Fraction of images held for validation.')
 
@@ -230,7 +248,6 @@ class OpusDsdProtTrain(ProtProcessParticles, ProtFlexBase):
                            'around D*downFrac/0.75, which is larger than the input size.')
 
         form.addParam('downFrac', params.FloatParam, default=0.75,
-                      expertLevel=params.LEVEL_ADVANCED,
                       label='Downsampling fraction',
                       help='Downsample to this fraction of original size. You can set it according to '
                            'resolution of consensus model and the templateres you set')
@@ -262,7 +279,11 @@ class OpusDsdProtTrain(ProtProcessParticles, ProtFlexBase):
     def convertInputStep(self):
         """ Create a star file as expected by OPUS-DSD."""
         inParts = self._getInputParticles().getFileName()
-        starFilename = self._getFileName('input_parts')
+        if self.multiBody:
+            starFilename = self._getFileName('input_multiparts')
+        else:
+            starFilename = self._getFileName('input_parts')
+
         if inParts.endswith('.star'):
             shutil.copy(inParts, starFilename)
         else:
@@ -291,9 +312,26 @@ class OpusDsdProtTrain(ProtProcessParticles, ProtFlexBase):
 
             self._runProgram('relion_mask_create', args, fromRelion=True)
 
+        # In case it's a multi rigid-body training, we create a starfile with all the mask parameters
+        if self.multiBody:
+            if not os.path.exists(self._getExtra('Masks')):
+                pwutils.makePath(self._getExtra('Masks'))
+            for i, mask in enumerate(self.multiMasks):
+                multiMaskFilename = self._getFileName('input_multimask', mask=i)
+                multiMask = mask.get().getFileName()
+                shutil.copy(multiMask, multiMaskFilename)
+            body_masks = [body for body in os.listdir(self._getExtra()) if body.startswith('input_multimask')]
+            n_bodies = len(body_masks)
+            for body in body_masks:
+                shutil.move(self._getExtra(body), self._getExtra('Masks'))
+            self._createMultiStarFile(n_bodies)
+
     def runParseMdStep(self):
         # Creating both poses and ctfs files for training and evaluation
-        args = self._getFileName('input_parts')
+        if self.multiBody:
+            args = self._getFileName('input_multiparts')
+        else:
+            args = self._getFileName('input_parts')
 
         if self.boxSize.get() != -1:
             args += ' -D %d ' % self.boxSize.get()
@@ -307,19 +345,23 @@ class OpusDsdProtTrain(ProtProcessParticles, ProtFlexBase):
         else:
             args += '--Apix %f ' % self._getInputParticles().getSamplingRate()
 
-        args += '-o %s ' % self._getFileName('output_poses')
+        args += '-o %s' % self._getFileName('output_poses')
 
         if not self.multiBody:
-            args += '--outdir %s' % self._getExtra()
             self._runProgram('parse_pose_star', args)
         else:
-            # args += '--masks %s ' % self.masks
-            # args += '--outmasks %s ' % self._getExtra()
+            mask_params = [star for star in os.listdir(self._getExtra()) if star.endswith('bodies-tight-mask.star')]
+            args += ' --masks %s ' % self._getExtra(mask_params[0])
+            args += '--bodies %d' % int(mask_params[0][0])
+
             self._runProgram('parse_multi_pose_star', args)
 
         self._fixPosesTranslations()
 
-        args = self._getFileName('input_parts')
+        if self.multiBody:
+            args = self._getFileName('input_multiparts')
+        else:
+            args = self._getFileName('input_parts')
 
         if self.Apix.get() != -1:
             args += ' --Apix %f ' % self.Apix.get()
@@ -332,7 +374,6 @@ class OpusDsdProtTrain(ProtProcessParticles, ProtFlexBase):
             args += '-D %d ' % self._getBoxSize()
 
         args += '--relion31 '
-
         args += '-o %s ' % self._getFileName('output_ctfs')
 
         acquisition = self._getInputParticles().getAcquisition()
@@ -346,7 +387,11 @@ class OpusDsdProtTrain(ProtProcessParticles, ProtFlexBase):
 
     def runTrainingStep(self):
         # Call OPUS-DSD with the appropriate parameters
-        inputParticles = self._getFileName('input_parts')
+        if self.multiBody:
+            inputParticles = self._getFileName('input_multiparts')
+        else:
+            inputParticles = self._getFileName('input_parts')
+
         inputMask = self._getFileName('input_mask')
 
         if self.abInitio:
@@ -367,8 +412,9 @@ class OpusDsdProtTrain(ProtProcessParticles, ProtFlexBase):
         outputPoses = self._getExtra('poses.pkl')
         args += '--poses %s ' % outputPoses
 
-        # if self.multiBody:
-        #    args += '--masks %s ' % mask_params
+        if self.multiBody:
+            args += '--zaffdim %d ' % self.zAffDim
+            args += '--masks %s ' % self._getExtra('mask_params.pkl')
 
         outputCtfs = self._getExtra('ctfs.pkl')
         args += '--ctf %s ' % outputCtfs
@@ -397,6 +443,7 @@ class OpusDsdProtTrain(ProtProcessParticles, ProtFlexBase):
             args += '--wd %f ' % self.weightDecay
 
         args += '--lr %f ' % self.learningRate
+        args += '--accum-step %d ' % self.accumStep
         args += '--lamb %f ' % self.lamb
         args += '--downfrac %f ' % self.downFrac
         args += '--templateres %d ' % self.templateres
@@ -472,11 +519,30 @@ class OpusDsdProtTrain(ProtProcessParticles, ProtFlexBase):
     def _inputHasAlign(self):
         return self._getInputParticles().hasAlignmentProj()
 
+    def _createMultiStarFile(self, n_bodies):
+        with open(self._getExtra(f'{n_bodies}-bodies-tight-mask.star'), 'w') as f:
+            f.write("data_\n\n")
+            f.write("loop_\n")
+            f.write("_rlnBodyMaskName\n"
+                    "_rlnBodyRotateRelativeTo\n"
+                    "_rlnBodySigmaAngles\n"
+                    "_rlnBodySigmaOffset\n"
+                    "_rlnBodyReferenceName\n")
+            for mask in masks_info:
+                f.write(f"{mask['mask_name']} "
+                        f"{mask['rotate_relative_to']} "
+                        f"{mask['sigma_angles']} "
+                        f"{mask['sigma_offset']} "
+                        f"{mask['reference_name']}\n")
+
     def _fixPosesTranslations(self):
         # In case poses.pkl file has 3 dimensions, we set them to 2 so that the program is able to read it.
         posesFile = self._getFileName('output_poses')
         with open(posesFile, 'rb') as f:
-            rot, trans, euler = pickle.load(f)
+            if self.multiBody:
+                rot, trans, euler, *_ = pickle.load(f)
+            else:
+                rot, trans, euler = pickle.load(f)
         N, D = trans.shape
         if D > 2:
             print(f'Truncating dimensions from {D}D to 2D.')

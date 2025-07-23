@@ -127,13 +127,18 @@ class OpusDsdProtAnalyze(ProtProcessParticles,ProtFlexBase):
         initEpoch = os.path.basename(self._getWorkDir()).split('.')[1]
         zDim = self._getOpusDSDTrainingProtocol().zDim
 
-        self._insertFunctionStep(self.runAnalysisStep, initEpoch, zDim)
-        self._insertFunctionStep(self.runEvalVolStep, initEpoch, zDim)
-        self._insertFunctionStep(self.createOutputStep, initEpoch, zDim)
+        # When computing the encoder, we need a new Apix for asserting equal shapes on convolutional matrices
+        downFrac = self._getOpusDSDTrainingProtocol().downFrac
+        render_size = (int(float(self._getBoxSize()) * float(downFrac)) // 2) * 2
+        newApix = self._getInputParticles().getSamplingRate() * self._getBoxSize() / render_size
+
+        self._insertFunctionStep(self.runAnalysisStep, initEpoch, zDim, newApix)
+        self._insertFunctionStep(self.runEvalVolStep, initEpoch, zDim, newApix)
+        self._insertFunctionStep(self.createOutputStep, initEpoch, zDim, newApix)
 
     # --------------------------- STEPS functions -----------------------------
 
-    def runAnalysisStep(self, initEpoch, zDim):
+    def runAnalysisStep(self, initEpoch, zDim, newApix):
         """ Call OPUS-DSD with the appropriate parameters to analyze """
         poseDir = self._getWorkDir() + f'/pose.{initEpoch}.pkl'
 
@@ -143,13 +148,7 @@ class OpusDsdProtAnalyze(ProtProcessParticles,ProtFlexBase):
         args += '--vanilla '
         args += '--D %d ' % self._getBoxSize()
         args += '--pose %s ' % poseDir
-
-        #When computing the encoder, we need a new Apix for asserting equal shapes on convolutional matrices
-        downFrac = self._getOpusDSDTrainingProtocol().downFrac
-        render_size = (int(float(self._getBoxSize()) * float(downFrac)) // 2) * 2
-        newApix = self._getInputParticles().getSamplingRate() * self._getBoxSize() / render_size
         args += '--Apix %f ' % round(newApix, 2)
-
         args += '--pc %d ' % self.numPCs
         if self.ksamples.get() % int(zDim) == 0:
             args += '--ksample %d ' % self.ksamples
@@ -165,7 +164,7 @@ class OpusDsdProtAnalyze(ProtProcessParticles,ProtFlexBase):
 
         self._runProgram('analyze', args)
 
-    def runEvalVolStep(self, initEpoch, zDim):
+    def runEvalVolStep(self, initEpoch, zDim, newApix):
         """ Call OPUS-DSD with the appropriate parameters to analyze """
         weights = self._getWorkDir() + f'/weights.{initEpoch}.pkl'
         weightsNew = self._getWorkDir() + f'/weights_new.{initEpoch}.pkl'
@@ -192,13 +191,7 @@ class OpusDsdProtAnalyze(ProtProcessParticles,ProtFlexBase):
         args += '--prefix vol_ '
         args += '--zfile %s ' % zFile
         args += '--num-bodies 0 '
-
-        # When computing the encoder, we need a new Apix for asserting equal shapes on convolutional matrices
-        downFrac = self._getOpusDSDTrainingProtocol().downFrac
-        render_size = (int(float(self._getBoxSize()) * float(downFrac)) // 2) * 2
-        newApix = self._getInputParticles().getSamplingRate() * self._getBoxSize() / render_size
         args += '--Apix %f ' % round(newApix, 2)
-
         args += '--enc-layers %d ' % self._getOpusDSDTrainingProtocol().qLayers
         args += '--enc-dim %d ' % self._getOpusDSDTrainingProtocol().qDim
         args += '--zdim %d ' % int(zDim)
@@ -211,7 +204,7 @@ class OpusDsdProtAnalyze(ProtProcessParticles,ProtFlexBase):
 
         self._runProgram('eval_vol', args)
 
-    def createOutputStep(self, initEpoch, zDim):
+    def createOutputStep(self, initEpoch, zDim, newApix):
         """ Create the protocol outputs. """
         weights = self._getWorkDir() + f'/weights.{initEpoch}.pkl'
         weightsNew = self._getWorkDir() + f'/weights_new.{initEpoch}.pkl'
@@ -246,12 +239,7 @@ class OpusDsdProtAnalyze(ProtProcessParticles,ProtFlexBase):
         # Creating a set of volumes with z_values depending on the sampleMode
         fn = self._getExtra('volumes.sqlite')
         files, zValues = self._getVolumesZCalc(sampleMode=self.sampleMode.get(), initEpoch=initEpoch, zDim=zDim)
-        if self.Apix.get() != -1:
-            volSet = self._createVolumeZSet(files, zValues, fn,
-                                            params.Float(self.Apix.get()))
-        else:
-            volSet = self._createVolumeZSet(files, zValues, fn,
-                                            params.Float(self._getInputParticles().getSamplingRate()))
+        volSet = self._createVolumeZSet(files, zValues, fn, round(newApix, 2))
 
         self._defineOutputs(outputVolumes=volSet)
         self._defineSourceRelation(inSet, volSet)
@@ -288,9 +276,12 @@ class OpusDsdProtAnalyze(ProtProcessParticles,ProtFlexBase):
     def _getExtra(self, *paths):
         return os.path.abspath(self._getExtraPath(*paths))
 
-    def _runProgram(self, program, args, fromCryodrgn=True):
+    def _runProgram(self, program, args, fromRelion=False):
         gpus = ','.join(str(i) for i in self.getGpuList())
-        self.runJob(Plugin.getProgram(program, gpus, fromCryodrgn=fromCryodrgn), args)
+        if not fromRelion:
+            self.runJob(Plugin.getProgram(program, gpus, fromCryodrgn=True), args)
+        else:
+            self.runJob(Plugin.getRelionProgram(program), args)
 
     def _getWorkDir(self):
         workDir = [dir for dir in os.listdir(self._getExtra()) if dir.startswith('Results')]

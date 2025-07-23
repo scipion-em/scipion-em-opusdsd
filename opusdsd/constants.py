@@ -56,3 +56,15 @@ CONFIG = "_opusdsdConfig"
 
 # FlexHub program
 OPUSDSD = "Opus-DSD"
+
+# masks info
+masks_info = [
+    {"mask_name": "Masks/input_multimask_0.mrc", "rotate_relative_to": 2, "sigma_angles": 10, "sigma_offset": 2,
+     "reference_name": "Masks/ref_0.mrc"},
+    {"mask_name": "Masks/input_multimask_1.mrc", "rotate_relative_to": 1, "sigma_angles": 15, "sigma_offset": 3,
+     "reference_name": "Masks/ref_1.mrc"},
+    {"mask_name": "Masks/input_multimask_2.mrc", "rotate_relative_to": 1, "sigma_angles": 15, "sigma_offset": 3,
+     "reference_name": "Masks/ref_2.mrc"},
+    {"mask_name": "Masks/input_multimask_3.mrc", "rotate_relative_to": 1, "sigma_angles": 15, "sigma_offset": 3,
+     "reference_name": "Masks/ref_3.mrc"},
+]

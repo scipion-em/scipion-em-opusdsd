@@ -114,7 +114,7 @@ class TestOpusDsd(BaseTest):
                                      useMask=True,
                                      abInitio=True,
                                      numEpochs=20,
-                                     zDim=12)
+                                     zDim=2)
         protTrain.inputParticles.set(self.protPartSubset.outputParticles)
         protTrain.inputMask.set(self.protImportMask.outputMask)
         self.launchProtocol(protTrain)
