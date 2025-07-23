@@ -241,16 +241,15 @@ class OpusDsdProtTrain(ProtProcessParticles, ProtFlexBase):
                       label='Validation image fraction',
                       help='Fraction of images held for validation.')
 
-        form.addParam('templateres', params.IntParam, default=224,
-                      expertLevel=params.LEVEL_ADVANCED,
-                      label='Output size',
-                      help='Define the output size of 3d volume of the convolutional network. You may keep it '
-                           'around D*downFrac/0.75, which is larger than the input size.')
-
-        form.addParam('downFrac', params.FloatParam, default=0.75,
+        form.addParam('downFrac', params.FloatParam, default=0.7,
                       label='Downsampling fraction',
                       help='Downsample to this fraction of original size. You can set it according to '
                            'resolution of consensus model and the templateres you set')
+
+        form.addParam('templateres', params.IntParam, default=224,
+                      label='Output size',
+                      help='Define the output size of 3d volume of the convolutional network. You may keep it '
+                           'around > D*downFrac, which is larger than the input size.')
 
         form.addHidden(params.GPU_LIST, params.StringParam, default='0',
                        label="Choose GPU IDs",
