@@ -34,7 +34,7 @@ from pyworkflow import Config
 
 from .constants import *
 
-__version__ = '3.0.1'
+__version__ = '3.1.0'
 _references = ['Luo2023']
 _logo = "cryodrgn_logo.png"
 
