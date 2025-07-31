@@ -191,7 +191,6 @@ class OpusDsdProtAnalyze(ProtProcessParticles,ProtFlexBase):
 
         args += '--prefix vol_ '
         args += '--zfile %s ' % zFile
-        args += '--num-bodies 0 '
         args += '--Apix %f ' % round(newApix, 2)
         args += '--enc-layers %d ' % self._getOpusDSDTrainingProtocol().qLayers
         args += '--enc-dim %d ' % self._getOpusDSDTrainingProtocol().qDim
@@ -254,10 +253,10 @@ class OpusDsdProtAnalyze(ProtProcessParticles,ProtFlexBase):
         summary = ["Analyzing results for the %d epoch." % int(initEpoch)]
         if self.sampleMode.get() == PCA:
             summary += ["Number of volumes to generate when PCA is running is of a total of "
-                        f"{int(self.numPCs.get() * self.psamples.get() / int(zDim))}"]
+                        f"{int(self.numPCs.get() * self.psamples.get() / int(zDim))}."]
         elif self.sampleMode.get() == KMEANS:
             summary += ["Number of volumes to generate when KMEANS is running is of a total of "
-                        f"{int(4 * self.ksamples.get() / int(zDim))}"]
+                        f"{int(4 * self.ksamples.get() / int(zDim))}."]
 
         return summary
 

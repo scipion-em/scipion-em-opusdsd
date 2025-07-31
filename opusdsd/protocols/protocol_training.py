@@ -78,7 +78,8 @@ class OpusDsdProtTrain(ProtProcessParticles, ProtFlexBase):
                       pointerClass="SetOfParticles, SetOfParticlesFlex",
                       label='Input Particles')
 
-        form.addParam('abInitio', params.BooleanParam, label="Ab-Initio condition",
+        form.addParam('abInitio', params.BooleanParam, default=True,
+                      label="Ab-Initio condition",
                       help="If preprocess data is required, set to yes, if training data is required, set to no.")
 
         group = form.addGroup('Ab-Initio', condition='abInitio==%s' % True)
@@ -153,7 +154,7 @@ class OpusDsdProtTrain(ProtProcessParticles, ProtFlexBase):
                             "training will be performed.")
 
         group.addParam('multiMasks', params.MultiPointerParam, pointerClass='VolumeMask',
-                      condition='multiBody==%s' % True,
+                      condition='multiBody==%s' % True, allowsNull=True,
                       label='Multibody Masks',
                       help='Input of multiple masks of different bodies of the same input volume. Important for '
                            'later creation of a necessary star file for multi-body training.')
@@ -445,11 +446,14 @@ class OpusDsdProtTrain(ProtProcessParticles, ProtFlexBase):
         args += '--accum-step %d ' % self.accumStep
         args += '--lamb %f ' % self.lamb
 
-        if self.downFrac.get() * (self._getBoxSize() - 1) >= 128:
-            args += '--downfrac %f ' % self.downFrac
+        if self.multiBody:
+            if self.downFrac.get() * (self._getBoxSize() - 1) >= 128:
+                args += '--downfrac %f ' % self.downFrac
+            else:
+                raise ValueError("Error while asserting, please change the downsampling factor accordingly, as "
+                                 "the product between the factor and the original size of the particles are not above 128")
         else:
-            raise ValueError("Error while asserting, please change the downsampling factor accordingly, as "
-                             "the product between the factor and the original size of the particles are not above 128")
+            args += '--downfrac %f ' % self.downFrac
 
         args += '--templateres %d ' % self.templateres
         args += '--bfactor %f ' % self.bfactor
