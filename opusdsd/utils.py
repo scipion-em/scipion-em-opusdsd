@@ -1,36 +1,44 @@
-import os
-import numpy as np
-
+# **************************************************************************
+# *
+# * Authors:     Grigory Sharov (gsharov@mrc-lmb.cam.ac.uk) [1]
+# *              James Krieger (jmkrieger@cnb.csic.es) [2]
+# *              Eduardo García (eduardo.garcia@cnb.csic.es) [2]
+# *
+# * [1] MRC Laboratory of Molecular Biology (MRC-LMB)
+# * [2] Unidad de  Biocomputacion, Centro Nacional de Biotecnologia, CSIC (CNB-CSIC)
+# *
+# * This program is free software; you can redistribute it and/or modify
+# * it under the terms of the GNU General Public License as published by
+# * the Free Software Foundation; either version 3 of the License, or
+# * (at your option) any later version.
+# *
+# * This program is distributed in the hope that it will be useful,
+# * but WITHOUT ANY WARRANTY; without even the implied warranty of
+# * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# * GNU General Public License for more details.
+# *
+# * You should have received a copy of the GNU General Public License
+# * along with this program; if not, write to the Free Software
+# * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
+# * 02111-1307  USA
+# *
+# *  All comments concerning this program package may be sent to the
+# *  e-mail address 'scipion@cnb.csic.es'
+# *
+# **************************************************************************
 from pyworkflow.utils.process import runJob
-from . import Plugin
+from opusdsd import Plugin
 
+def generateVolumes(zValues, weights, config, outdir, Apix, zDim):
+    """ Call OPUS-DSD with the appropriate parameters to generate volumes """
 
-def generateVolumes(zValues, weights, config, outdir, apix=1, flip=False,
-                    downsample=None, invert=False):
-    """
-    Function to call cryodrgn eval_vol and generate new volumes
-    """
-    program = 'eval_vol'
-    args = _getEvalVolArgs(zValues, weights, config, outdir, apix, flip,
-                           downsample, invert)
-    runJob(None, Plugin.getProgram(program, gpus='0'), ' '.join(args),
+    args = '--load %s ' % weights
+    args += '--config %s ' % config
+    args += '-o %s ' % outdir
+    args += '--prefix vol_ '
+    args += '--zfile %s ' % zValues
+    args += '--Apix %f ' % round(Apix, 2)
+    args += '--zdim %d ' % int(zDim)
+
+    runJob(None, Plugin.getProgram('eval_vol', gpus='0'), ' '.join(args),
            env=Plugin.getEnviron())
-
-
-def _getEvalVolArgs(zvalues, weights, config, outdir, apix,
-                    flip, downsample, invert):
-    if not os.path.exists(outdir):
-        os.mkdir(outdir)
-
-    np.savetxt(f'{outdir}/zfile.txt', zvalues)
-    zfilePath = os.path.abspath(os.path.join(outdir, 'zfile.txt'))
-
-    return [weights,
-            '--config %s' % config,
-            '--zfile %s' % zfilePath,
-            '-o %s' % outdir,
-            '--Apix %s' % apix,
-            '--flip' if flip else '',
-            ('-d %d' % downsample) if downsample is not None else '',
-            '--invert' if invert else ''
-            ]

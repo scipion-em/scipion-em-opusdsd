@@ -2,6 +2,7 @@
 # *
 # * Authors:     Grigory Sharov (gsharov@mrc-lmb.cam.ac.uk) [1]
 # *              James Krieger (jmkrieger@cnb.csic.es) [2]
+# *              Eduardo García Delgado (eduardo.garcia@cnb.csic.es) [2]
 # *
 # * [1] MRC Laboratory of Molecular Biology (MRC-LMB)
 # * [2] Unidad de  Biocomputacion, Centro Nacional de Biotecnologia, CSIC (CNB-CSIC)
@@ -26,4 +27,4 @@
 # *
 # **************************************************************************
 
-from .test_protocols_opusdsd import TestOpusDsd
+from .test_opusdsd import TestOpusDsd

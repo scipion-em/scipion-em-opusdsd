@@ -56,12 +56,13 @@ Supported versions
 
 0.3.2b
 
+v1.1.0
+
 Protocols
 ----------
 
-* preprocess
-* training VAE
-* training ab initio
+* training CV/Multi
+* analyze/eval_vol (volume generation)
 
 References
 -----------
