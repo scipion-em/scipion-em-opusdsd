@@ -52,7 +52,10 @@ VOLUME_CHIMERA = 1
 # extra metadata attrs
 Z_VALUES = "_opusdsdZValues"
 WEIGHTS = "_opusdsdWeights"
+WEIGHTSNEW = "_opusdsdWeightsNew"
 CONFIG = "_opusdsdConfig"
+ZDIM = "_opusdsdZDim"
+DOWNFRAC = "_opusdsdDownFrac"
 
 # FlexHub program
 OPUSDSD = "Opus-DSD"

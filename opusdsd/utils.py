@@ -26,19 +26,28 @@
 # *  e-mail address 'scipion@cnb.csic.es'
 # *
 # **************************************************************************
+import os
 from pyworkflow.utils.process import runJob
 from opusdsd import Plugin
+import numpy as np
 
-def generateVolumes(zValues, weights, config, outdir, Apix, zDim):
+def generateVolumes(zValues, weights, config, outdir, Apix, boxSize, downFrac, zDim):
     """ Call OPUS-DSD with the appropriate parameters to generate volumes """
 
     args = '--load %s ' % weights
     args += '--config %s ' % config
-    args += '-o %s ' % outdir
+    args += '-o %s ' % os.path.abspath(outdir)
     args += '--prefix vol_ '
-    args += '--zfile %s ' % zValues
-    args += '--Apix %f ' % round(Apix, 2)
+
+    np.savetxt(f'{outdir}/zfile.txt', zValues)
+    zFile = os.path.abspath(os.path.join(outdir, 'zfile.txt'))
+    args += '--zfile %s ' % zFile
+
+    render_size = (int(float(boxSize) * float(downFrac)) // 2) * 2
+    newApix = Apix * boxSize / render_size
+    args += '--Apix %f ' % round(newApix, 2)
+
     args += '--zdim %d ' % int(zDim)
 
-    runJob(None, Plugin.getProgram('eval_vol', gpus='0'), ' '.join(args),
+    runJob(None, Plugin.getProgram('eval_vol', gpus='0'), ''.join(args),
            env=Plugin.getEnviron())

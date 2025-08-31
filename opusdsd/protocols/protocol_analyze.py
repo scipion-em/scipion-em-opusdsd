@@ -134,7 +134,7 @@ class OpusDsdProtAnalyze(ProtProcessParticles,ProtFlexBase):
 
         self._insertFunctionStep(self.runAnalysisStep, initEpoch, zDim, newApix)
         self._insertFunctionStep(self.runEvalVolStep, initEpoch, zDim, newApix)
-        self._insertFunctionStep(self.createOutputStep, initEpoch, zDim, newApix)
+        self._insertFunctionStep(self.createOutputStep, initEpoch, zDim, newApix, downFrac)
 
     # --------------------------- STEPS functions -----------------------------
 
@@ -154,13 +154,13 @@ class OpusDsdProtAnalyze(ProtProcessParticles,ProtFlexBase):
         if self.ksamples.get() % int(zDim) == 0:
             args += '--ksample %d ' % self.ksamples
         else:
-            raise ValueError("Error while asserting, ksamples mod zDim (selected in previous training) must be 0, "
+            raise ValueError(f"Error while asserting, ksamples mod zDim {zDim} (selected in previous training) must be 0, "
                              "please change ksamples accordingly")
 
         if self.psamples.get() % int(zDim) == 0:
             args += '--psample %d' % self.psamples
         else:
-            raise ValueError("Error while asserting, psamples mod zDim (selected in previous training) must be 0, "
+            raise ValueError(f"Error while asserting, psamples mod zDim {zDim} (selected in previous training) must be 0, "
                              "please change psamples accordingly")
 
         self._runProgram('analyze', args)
@@ -204,7 +204,7 @@ class OpusDsdProtAnalyze(ProtProcessParticles,ProtFlexBase):
 
         self._runProgram('eval_vol', args)
 
-    def createOutputStep(self, initEpoch, zDim, newApix):
+    def createOutputStep(self, initEpoch, zDim, newApix, downFrac):
         """ Create the protocol outputs. """
         weights = self._getWorkDir() + f'/weights.{initEpoch}.pkl'
         weightsNew = self._getWorkDir() + f'/weights_new.{initEpoch}.pkl'
@@ -232,6 +232,8 @@ class OpusDsdProtAnalyze(ProtProcessParticles,ProtFlexBase):
             outSet.getFlexInfo().setAttr(WEIGHTS, pwobj.String(weights))
 
         outSet.getFlexInfo().setAttr(CONFIG, pwobj.String(config))
+        outSet.getFlexInfo().setAttr(ZDIM, pwobj.String(zDim))
+        outSet.getFlexInfo().setAttr(DOWNFRAC, pwobj.String(downFrac))
 
         self._defineOutputs(outputParticles=outSet)
         self._defineSourceRelation(inSet, outSet)
@@ -284,8 +286,8 @@ class OpusDsdProtAnalyze(ProtProcessParticles,ProtFlexBase):
             self.runJob(Plugin.getRelionProgram(program), args)
 
     def _getWorkDir(self):
-        workDir = [dir for dir in os.listdir(self._getExtra()) if dir.startswith('Results')]
-        return self._getExtra(workDir[0])
+        workDir = [dir for dir in os.listdir(self._getExtra()) if dir.startswith('Results')][0]
+        return self._getExtra(workDir)
 
     def _out(self, initEpoch, *p):
         if self._hasMultLatentVars():

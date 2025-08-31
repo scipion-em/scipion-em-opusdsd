@@ -406,9 +406,6 @@ class OpusDsdProtTrain(ProtProcessParticles, ProtFlexBase):
         args += '--ref_vol %s ' % inputMask
         args += '--zdim %d ' % self.zDim
 
-        if self.multiBody:
-            args += '--zaffdim %d ' % self.zDim
-
         outputPoses = self._getExtra('poses.pkl')
         args += '--poses %s ' % outputPoses
 

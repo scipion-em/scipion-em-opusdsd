@@ -41,9 +41,10 @@ python with conda ones. One example of this could can be seen below but
 depending on your conda version and shell you will need something different:
 CONDA_ACTIVATION_CMD = eval "$(/extra/miniconda3/bin/conda shell.bash hook)"
 
-*OPUSDSD_ENV_ACTIVATION* (default = conda activate opusdsd-2.3.0):
-Command to activate the opusdsd environment.
+*OPUSDSD_ENV_ACTIVATION* (default = conda activate opusdsd-v1.1.0):
+Command to activate the opusdsd environment. 
 
+It will be left the latest version of Opus-DSD as default. In case some other version is required for specific conditions, please, contact us.
 
 Verifying
 ---------
