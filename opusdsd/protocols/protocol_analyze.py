@@ -89,19 +89,17 @@ class OpusDsdProtAnalyze(ProtProcessParticles,ProtFlexBase):
 
         group.addParam('psamples', params.IntParam, default=12, condition='sampleMode==%s' % PCA,
                       label='Number of PC samples to generate',
-                      help="*cryodrgn analyze* uses the principal component "
+                      help="When analyzing, this protocol uses the principal component "
                            "algorithm to analyze the latent space into "
-                           "components (by default p=12 components), and generate a "
-                           "trajectory along the specific principle component. "
+                           "components, and generate a trajectory along the specific principle component. "
                            "The goal is to provide z values along PC for a subsequent"
                            "generation of volumes. psamples mod zDim must be 0.")
 
         group.addParam('ksamples', params.IntParam, default=24, condition='sampleMode==%s' % KMEANS,
                       label='Number of K-means samples to generate',
-                      help="*cryodrgn analyze* uses the k-means clustering "
+                      help="When analyzing, this protocol uses the k-means clustering "
                            "algorithm to partition the latent space into "
-                           "regions (by default k=20 regions), and generate a "
-                           "density map from the center of each of these "
+                           "regions, and generate a density map from the center of each of these "
                            "regions. The goal is to provide a tractable number "
                            "of representative density maps to visually inspect in a "
                            "subsequent generation of volumes. ksamples mod zDim must be 0.")
@@ -151,16 +149,18 @@ class OpusDsdProtAnalyze(ProtProcessParticles,ProtFlexBase):
         args += '--Apix %f ' % round(newApix, 2)
         args += '--pc %d ' % self.numPCs
 
-        if self.ksamples.get() % int(zDim) == 0:
-            args += '--ksample %d ' % self.ksamples
-        else:
-            raise ValueError(f"Error while asserting, ksamples mod zDim {zDim} (selected in previous training) must be 0, "
+        if self.sampleMode.get() == KMEANS:
+            if self.ksamples.get() % int(zDim) == 0:
+                args += '--ksample %d ' % self.ksamples
+            else:
+                raise ValueError(f"Error while asserting, ksamples mod zDim {zDim} (selected in previous training) must be 0, "
                              "please change ksamples accordingly")
 
-        if self.psamples.get() % int(zDim) == 0:
-            args += '--psample %d' % self.psamples
-        else:
-            raise ValueError(f"Error while asserting, psamples mod zDim {zDim} (selected in previous training) must be 0, "
+        elif self.sampleMode.get() == PCA:
+            if self.psamples.get() % int(zDim) == 0:
+                args += '--psample %d' % self.psamples
+            else:
+                raise ValueError(f"Error while asserting, psamples mod zDim {zDim} (selected in previous training) must be 0, "
                              "please change psamples accordingly")
 
         self._runProgram('analyze', args)
