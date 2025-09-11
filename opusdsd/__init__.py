@@ -87,9 +87,9 @@ class Plugin(pwem.Plugin):
         ENV_NAME = getOpusDsdEnvName(version)
         FLAG = f"opusdsd_{version}_installed"
         if int(CUDA_VERSION) <= 11.8:
-            FILE = 'enviroment.yml'
+            FILE = 'environment.yml'
         else:
-            FILE = 'enviromentcu11.yml'
+            FILE = 'environmentcu11.yml'
 
         # try to get CONDA activation command
         installCmds = [
