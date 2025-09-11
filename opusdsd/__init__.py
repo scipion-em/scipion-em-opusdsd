@@ -109,7 +109,9 @@ class Plugin(pwem.Plugin):
                 'pip install pillow==10.4.0 &&'
             ]
         
-        installCmds += f'touch {FLAG}'  # Flag installation finished
+        installCmds += [
+            f'touch {FLAG}'  # Flag installation finished
+        ]
         
 
         envPath = os.environ.get('PATH', "")
