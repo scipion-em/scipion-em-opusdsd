@@ -90,7 +90,7 @@ class Plugin(pwem.Plugin):
         # try to get CONDA activation command
         installCmds = [
             cls.getCondaActivationCmd(),
-            f'conda env create --name {ENV_NAME} --file environmentcu11torch11.yml --yes &&',
+            f'conda env create --name {ENV_NAME} --file environmentcu11.yml --yes &&',
             f'conda activate {ENV_NAME} &&',
             'pip install -e . &&',
             'pip install pillow==10.4.0 &&',
