@@ -86,11 +86,15 @@ class Plugin(pwem.Plugin):
     def addOpusDsdPackage(cls, env, version, default=False):
         ENV_NAME = getOpusDsdEnvName(version)
         FLAG = f"opusdsd_{version}_installed"
+        if int(CUDA_VERSION) <= 11.8:
+            FILE = 'enviroment.yml'
+        else:
+            FILE = 'enviromentcu11.yml'
 
         # try to get CONDA activation command
         installCmds = [
             cls.getCondaActivationCmd(),
-            f'conda env create --name {ENV_NAME} --file environmentcu11.yml --yes &&',
+            f'conda env create --name {ENV_NAME} --file {FILE} --yes &&',
             f'conda activate {ENV_NAME} &&',
             'pip install -e . &&',
             'pip install pillow==10.4.0 &&',

@@ -60,6 +60,12 @@ DOWNFRAC = "_opusdsdDownFrac"
 # FlexHub program
 OPUSDSD = "Opus-DSD"
 
+# nvcc --version CUDA
+import re, subprocess
+command = subprocess.run(['nvcc', '--version'], capture_output=True, text=True, check=True)
+match = re.search(r'release (\d+\.\d+)', command.stdout)
+CUDA_VERSION = float(match.group(1))
+
 # masks info
 masks_info = [
     {"mask_name": "Masks/input_multimask_0.mrc", "rotate_relative_to": 2, "sigma_angles": 10, "sigma_offset": 2,
