@@ -90,11 +90,11 @@ class Plugin(pwem.Plugin):
         # try to get CONDA activation command
         installCmds = [
             cls.getCondaActivationCmd(),
-            f'conda env create --name {ENV_NAME} --file environment.yml --yes &&',
+            f'conda env create --name {ENV_NAME} --file environmentcu11torch11.yml --yes &&',
             f'conda activate {ENV_NAME} &&',
             'pip install -e . &&',
-            'pip install numpy==1.21.0 &&',
-            'pip install seaborn==0.13.2 &&'
+            #'pip install numpy==1.21.0 &&',
+            #'pip install seaborn==0.13.2 &&'
             #'pip install torch==2.0.0 torchvision==0.15.1 torchaudio==2.0.1 --index-url https://download.pytorch.org/whl/cu118 &&',
             f'touch {FLAG}'  # Flag installation finished
         ]
