@@ -128,7 +128,7 @@ class OpusDsdProtAnalyze(ProtProcessParticles,ProtFlexBase):
         # When computing the encoder, we need a new Apix for asserting equal shapes on convolutional matrices
         downFrac = self._getOpusDSDTrainingProtocol().downFrac
         render_size = (int(float(self._getBoxSize()) * float(downFrac)) // 2) * 2
-        newApix = self._getInputParticles().getSamplingRate() * self._getBoxSize() / render_size
+        newApix = self._getInputParticles().getSamplingRate() * (self._getBoxSize() - 1) / render_size
 
         self._insertFunctionStep(self.runAnalysisStep, initEpoch, zDim, newApix)
         self._insertFunctionStep(self.runEvalVolStep, initEpoch, zDim, newApix)
