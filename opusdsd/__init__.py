@@ -97,9 +97,20 @@ class Plugin(pwem.Plugin):
             f'conda env create --name {ENV_NAME} --file {FILE} --yes &&',
             f'conda activate {ENV_NAME} &&',
             'pip install -e . &&',
-            'pip install pillow==10.4.0 &&',
-            f'touch {FLAG}'  # Flag installation finished
         ]
+
+        if int(CUDA_VERSION) <= 11.8:
+            installCmds += [
+                'pip install numpy==1.21.0 &&',
+                'pip install seaborn==0.13.2 &&'
+            ]
+        else:
+            installCmds += [
+                'pip install pillow==10.4.0 &&'
+            ]
+        
+        installCmds += f'touch {FLAG}'  # Flag installation finished
+        
 
         envPath = os.environ.get('PATH', "")
         # keep path since conda likely in there
