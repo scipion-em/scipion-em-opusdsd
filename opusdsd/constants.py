@@ -2,7 +2,7 @@
 # *
 # * Authors:     Grigory Sharov (gsharov@mrc-lmb.cam.ac.uk) [1]
 # *              James Krieger (jmkrieger@cnb.csic.es) [2]
-# *              Eduardo García Delgado (eduardo.garcia@cnb.csic.es) [2]
+# *              Eduardo Garc�a Delgado (eduardo.garcia@cnb.csic.es) [2]
 # *
 # * [1] MRC Laboratory of Molecular Biology (MRC-LMB)
 # * [2] Unidad de  Biocomputacion, Centro Nacional de Biotecnologia, CSIC (CNB-CSIC)
@@ -56,6 +56,8 @@ WEIGHTSNEW = "_opusdsdWeightsNew"
 CONFIG = "_opusdsdConfig"
 ZDIM = "_opusdsdZDim"
 DOWNFRAC = "_opusdsdDownFrac"
+CROP_VOL_SIZE = "_opusdsdCropVolSize"
+WINDOW_R = "_opusdsdWindowR"
 
 # FlexHub program
 OPUSDSD = "Opus-DSD"

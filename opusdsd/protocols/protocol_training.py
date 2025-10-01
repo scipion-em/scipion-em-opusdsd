@@ -1,5 +1,4 @@
 # **************************************************************************
-# *
 # * Authors:     Grigory Sharov (gsharov@mrc-lmb.cam.ac.uk) [1]
 # *              James Krieger (jmkrieger@cnb.csic.es) [2]
 # *              Eduardo García (eduardo.garcia@cnb.csic.es) [2]
@@ -29,6 +28,7 @@
 import os, shutil
 import pickle
 from pwem.constants import ALIGN_PROJ, ALIGN_NONE
+from pyworkflow.protocol.constants import *
 import pyworkflow.utils as pwutils
 import pyworkflow.protocol.params as params
 from pyworkflow.plugin import Domain
@@ -138,14 +138,6 @@ class OpusDsdProtTrain(ProtProcessParticles, ProtFlexBase):
                        help="Previously executed 'opusdsd training'. "
                             "This will allow to load the necessary results the previous protocol achieved to get")
 
-        form.addParam('Apix', params.FloatParam, default=-1,
-                      label='Pixel size in A/pix',
-                      help='If left as -1, pixel size will be the same as the sampling rate of the input particles.')
-
-        form.addParam('boxSize', params.IntParam, default=-1,
-                      label='Box size of reconstruction (pixels)',
-                      help='If left as -1, box size will be the same as the dimensions of the input particles.')
-
         form.addSection(label='Training')
         group = form.addGroup('Multi-Body Training')
         group.addParam('multiBody', params.BooleanParam, default=False,
@@ -242,12 +234,12 @@ class OpusDsdProtTrain(ProtProcessParticles, ProtFlexBase):
                       label='Validation image fraction',
                       help='Fraction of images held for validation.')
 
-        form.addParam('downFrac', params.FloatParam, default=0.7,
-                      label='Downsampling fraction',
+        form.addParam('downFrac', params.FloatParam, default=0.5,
+                      label='Downsampling fraction', expertLevel=params.LEVEL_ADVANCED,
                       help='Downsample to this fraction of original size. You can set it according to '
                            'resolution of consensus model and the templateres you set')
 
-        form.addParam('templateres', params.IntParam, default=224,
+        form.addParam('templateres', params.IntParam, default=144,
                       label='Output size',
                       help='Define the output size of 3d volume of the convolutional network. You may keep it '
                            'around > D*downFrac, which is larger than the input size.')
@@ -268,9 +260,12 @@ class OpusDsdProtTrain(ProtProcessParticles, ProtFlexBase):
         self._createFilenameTemplates()
         self._createFilenameTemplatesTraining()
 
+        self.mode = self.getRunMode()
+
         if self.abInitio:
-            self._insertFunctionStep(self.convertInputStep)
-            self._insertFunctionStep(self.runParseMdStep)
+            if not self.mode == MODE_RESUME:
+                self._insertFunctionStep(self.convertInputStep)
+                self._insertFunctionStep(self.runParseMdStep)
 
         self._insertFunctionStep(self.runTrainingStep)
 
@@ -333,18 +328,9 @@ class OpusDsdProtTrain(ProtProcessParticles, ProtFlexBase):
         else:
             args = self._getFileName('input_parts')
 
-        if self.boxSize.get() != -1:
-            args += ' -D %d ' % self.boxSize.get()
-        else:
-            args += ' -D %d ' % self._getBoxSize()
-
+        args += ' -D %d ' % self._getBoxSize()
         args += '--relion31 '
-
-        if self.Apix.get() != -1:
-            args += '--Apix %f ' % self.Apix.get()
-        else:
-            args += '--Apix %f ' % self._getInputParticles().getSamplingRate()
-
+        args += '--Apix %f ' % self._getInputParticles().getSamplingRate()
         args += '-o %s' % self._getFileName('output_poses')
 
         if not self.multiBody:
@@ -363,16 +349,8 @@ class OpusDsdProtTrain(ProtProcessParticles, ProtFlexBase):
         else:
             args = self._getFileName('input_parts')
 
-        if self.Apix.get() != -1:
-            args += ' --Apix %f ' % self.Apix.get()
-        else:
-            args += ' --Apix %f ' % self._getInputParticles().getSamplingRate()
-
-        if self.boxSize.get() != -1:
-            args += '-D %d ' % self.boxSize.get()
-        else:
-            args += '-D %d ' % self._getBoxSize()
-
+        args += ' --Apix %f ' % self._getInputParticles().getSamplingRate()
+        args += '-D %d ' % self._getBoxSize()
         args += '--relion31 '
         args += '-o %s ' % self._getFileName('output_ctfs')
 
@@ -395,11 +373,18 @@ class OpusDsdProtTrain(ProtProcessParticles, ProtFlexBase):
         inputMask = self._getFileName('input_mask')
 
         if self.abInitio:
-            initEpoch = self.numEpochs.get() - 2
+            if self.mode == MODE_RESUME:
+                files = [file for file in os.listdir(self._getExtra()) if file.startswith('weights')]
+                initEpoch = max([int(os.path.basename(self._getExtra(file)).split('.')[1]) for file in files])
         else:
-            pwutils.cleanPath(self._getExtra())
-            shutil.copytree(self._getFileName('workTrainDir'), self._getExtra())
-            initEpoch = os.path.basename(self._getWorkDir()).split('.')[1]
+            if self.mode == MODE_RESUME:
+                files = [file for file in os.listdir(self._getExtra()) if file.startswith('weights')]
+                prevEpoch = os.path.basename(self._getWorkDir()).split('.')[1]
+                initEpoch = max([int(os.path.basename(os.path.abspath(file)).split('.')[1]) for file in files])
+            else:
+                pwutils.cleanPath(self._getExtra())
+                shutil.copytree(self._getFileName('workTrainDir'), self._getExtra())
+                initEpoch = os.path.basename(self._getWorkDir()).split('.')[1]
 
         args = inputParticles
         args += ' --outdir %s ' % self._getExtra()
@@ -416,7 +401,12 @@ class OpusDsdProtTrain(ProtProcessParticles, ProtFlexBase):
         outputCtfs = self._getExtra('ctfs.pkl')
         args += '--ctf %s ' % outputCtfs
 
-        if not self.abInitio:
+        if self.mode == MODE_RESUME:
+            weights = self._getExtra(f'weights.{initEpoch}.pkl')
+            z = self._getExtra(f'z.{initEpoch}.pkl')
+            args += '--load %s ' % weights
+            args += '--latents %s ' % z
+        elif not self.abInitio:
             weights = self._getExtra(f'Results.{initEpoch}/weights.{initEpoch}.pkl')
             z = self._getExtra(f'Results.{initEpoch}/z.{initEpoch}.pkl')
             args += '--load %s ' % weights
@@ -431,8 +421,12 @@ class OpusDsdProtTrain(ProtProcessParticles, ProtFlexBase):
         if self.abInitio:
             args += '--num-epochs %d ' % self.numEpochs
         else:
-            totalEpochs = self._getEpoch(initEpoch) + 2
-            args += '--num-epochs %d ' % totalEpochs
+            if self.mode == MODE_RESUME:
+                totalEpochs = self._getEpoch(prevEpoch) + 2
+                args += '--num-epochs %d ' % totalEpochs
+            else:
+                totalEpochs = self._getEpoch(initEpoch) + 2
+                args += '--num-epochs %d ' % totalEpochs
 
         args += '--batch-size %d ' % self.batchSize
 
@@ -471,7 +465,13 @@ class OpusDsdProtTrain(ProtProcessParticles, ProtFlexBase):
         else:
             self._runProgram('train_multi', args)
 
-        self._outputRegroup(initEpoch)
+        if self.abInitio:
+            self._outputRegroup(self.numEpochs.get() - 2)
+        else:
+            if self.mode == MODE_RESUME:
+                self._outputRegroup(prevEpoch)
+            else:
+                self._outputRegroup(initEpoch)
 
     # --------------------------- INFO functions ------------------------------
 
@@ -564,19 +564,19 @@ class OpusDsdProtTrain(ProtProcessParticles, ProtFlexBase):
             self._epoch = self.numEpochs.get() + int(initEpoch)
         return self._epoch
 
-    def _outputRegroup(self, initEpoch):
+    def _outputRegroup(self, epoch):
         # Eliminating previous Results directory to focus on next training (just in not-ab-initio case)
         if not self.abInitio:
             workDir = [dir for dir in os.listdir(self._getExtra()) if dir.startswith('Results')][0]
             pwutils.cleanPath(self._getExtra(workDir))
         # Creating outputs for the evaluated results from training
-        outputFolder = self._getExtra(f'Results.{self._getEpoch(initEpoch)}')
+        outputFolder = self._getExtra(f'Results.{self._getEpoch(epoch)}')
         os.makedirs(outputFolder, exist_ok=True)
         files = [file for file in os.listdir(self._getExtra()) if len(file.split('.')) == 3]
         for file in files:
-            if file.endswith('.pkl') and int(file.split('.')[1]) == self._getEpoch(initEpoch):
+            if file.endswith('.pkl') and int(file.split('.')[1]) == self._getEpoch(epoch):
                 shutil.move(self._getExtra(file), os.path.join(outputFolder, file))
-            elif file.endswith('.pkl') and int(file.split('.')[1]) != self._getEpoch(initEpoch):
+            elif file.endswith('.pkl') and int(file.split('.')[1]) != self._getEpoch(epoch):
                 os.remove(self._getExtra(file))
 
     def _getOpusDSDTrainingProtocol(self):

@@ -2,7 +2,7 @@
 # *
 # * Authors:     Grigory Sharov (gsharov@mrc-lmb.cam.ac.uk) [1]
 # *              James Krieger (jmkrieger@cnb.csic.es) [2]
-# *              Eduardo García (eduardo.garcia@cnb.csic.es) [2]
+# *              Eduardo Garc�a (eduardo.garcia@cnb.csic.es) [2]
 # *
 # * [1] MRC Laboratory of Molecular Biology (MRC-LMB)
 # * [2] Unidad de  Biocomputacion, Centro Nacional de Biotecnologia, CSIC (CNB-CSIC)
@@ -37,7 +37,6 @@ from .constants import *
 __version__ = '3.2.0'
 _references = ['Luo2023']
 _logo = "cryodrgn_logo.png"
-
 
 class Plugin(pwem.Plugin):
     _url = "https://github.com/scipion-em/scipion-em-opusdsd"
@@ -108,11 +107,10 @@ class Plugin(pwem.Plugin):
             installCmds += [
                 'pip install pillow==10.4.0 &&'
             ]
-        
+
         installCmds += [
             f'touch {FLAG}'  # Flag installation finished
         ]
-        
 
         envPath = os.environ.get('PATH', "")
         # keep path since conda likely in there
@@ -148,7 +146,7 @@ class Plugin(pwem.Plugin):
         """ Create Opus-DSD command line. """
         fullProgram = 'cd %s && %s && CUDA_VISIBLE_DEVICES=%s ' % (cls.getVar(OPUSDSD_HOME), cls.getActivationCmd(), gpus)
         if fromCryodrgn:
-                fullProgram += 'python -m cryodrgn.commands.%s' % program
+            fullProgram += 'python -m cryodrgn.commands.%s' % program
         else:
             fullProgram += 'sh %s/%s.sh' % (cls.getVar(OPUSDSD_HOME), program)
         return fullProgram
@@ -175,6 +173,11 @@ class Plugin(pwem.Plugin):
                 'in_mask_param = in_mask_param.squeeze(1); '
                 'data[\'model_state_dict\'][\'encoder.in_mask\'] = in_mask_param; '
                 f'torch.save(data, \'{output_file}\')"'
+            )
+        elif option == 'eval_vol':
+            fullProgram += (
+                'crop_vol_size = data[\'model_state_dict\'][\'encoder.in_mask\'].squeeze()[0]; '
+                f'np.savetxt(\'{output_file + ".txt"}\', crop_vol_size.cpu().numpy())"'
             )
         return fullProgram
 
