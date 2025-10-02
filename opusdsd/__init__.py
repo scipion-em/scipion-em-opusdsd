@@ -29,6 +29,7 @@
 
 import os
 import pwem
+from pynvml import *
 import pyworkflow.utils as pwutils
 from pyworkflow import Config
 
@@ -85,7 +86,7 @@ class Plugin(pwem.Plugin):
     def addOpusDsdPackage(cls, env, version, default=False):
         ENV_NAME = getOpusDsdEnvName(version)
         FLAG = f"opusdsd_{version}_installed"
-        if int(CUDA_VERSION) <= 11.8:
+        if int(cls.getCUDACapability().all()) == 7:
             FILE = 'environment.yml'
         else:
             FILE = 'environmentcu11.yml'
@@ -98,7 +99,7 @@ class Plugin(pwem.Plugin):
             'pip install -e . &&',
         ]
 
-        if int(CUDA_VERSION) <= 11.8:
+        if int(cls.getCUDACapability().all()) == 7:
             installCmds += [
                 'pip install numpy==1.21.0 &&',
                 'pip install seaborn==0.13.2 &&'
@@ -186,6 +187,29 @@ class Plugin(pwem.Plugin):
         """ Import Relion Program. """
         fullProgram = 'cd %s && cd bin/ && ./%s' % (cls.getVar(RELION_HOME), program)
         return fullProgram
+
+    @classmethod
+    def getCUDACapability(cls):
+        nvmlInit()
+        device_count = nvmlDeviceGetCount()
+        if device_count == 0:
+            print("No GPUs available, please, use Opus-DSD with GPUs, otherwise it won't run.")
+        print(f"Se detectaron {device_count} GPU(s) de NVIDIA.\n")
+
+        major_capability = []
+        for i in range(device_count):
+            handle = nvmlDeviceGetHandleByIndex(i)
+            gpu_name = nvmlDeviceGetName(handle)
+
+            major, minor = nvmlDeviceGetCudaComputeCapability(handle)
+            compute_capability = f"sm_{major}{minor}"
+
+            print(f"--- GPU #{i} ---")
+            print(f"  Nombre: {gpu_name}")
+            print(f"  CUDA Capability: {major}.{minor} ({compute_capability})")
+
+            major_capability.append(major)
+        return major_capability
 
     @classmethod
     def getActiveVersion(cls, *args):

@@ -63,10 +63,10 @@ WINDOW_R = "_opusdsdWindowR"
 OPUSDSD = "Opus-DSD"
 
 # nvcc --version CUDA
-import re, subprocess
-command = subprocess.run(['nvcc', '--version'], capture_output=True, text=True, check=True)
-match = re.search(r'release (\d+\.\d+)', command.stdout)
-CUDA_VERSION = float(match.group(1))
+#import re, subprocess
+#command = subprocess.run(['nvcc', '--version'], capture_output=True, text=True, check=True)
+#match = re.search(r'release (\d+\.\d+)', command.stdout)
+#CUDA_VERSION = float(match.group(1))
 
 # masks info
 masks_info = [
