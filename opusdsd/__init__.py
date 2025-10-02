@@ -86,14 +86,18 @@ class Plugin(pwem.Plugin):
     def addOpusDsdPackage(cls, env, version, default=False):
         ENV_NAME = getOpusDsdEnvName(version)
         FLAG = f"opusdsd_{version}_installed"
+        # try to get CONDA activation command
+        installCmds = [
+            cls.getCondaActivationCmd(),
+            f'pip install nvidia-ml-py &&'
+        ]
+
         if int(cls.getCUDACapability().all()) == 7:
             FILE = 'environment.yml'
         else:
             FILE = 'environmentcu11.yml'
 
-        # try to get CONDA activation command
-        installCmds = [
-            cls.getCondaActivationCmd(),
+        installCmds += [
             f'conda env create --name {ENV_NAME} --file {FILE} --yes &&',
             f'conda activate {ENV_NAME} &&',
             'pip install -e . &&',
