@@ -27,6 +27,8 @@
 # *
 # **************************************************************************
 
+import sys, subprocess
+
 V0_3_2B = "0.3.2b"
 V1_1_0 = "v1.1.0"
 
@@ -67,6 +69,19 @@ OPUSDSD = "Opus-DSD"
 #command = subprocess.run(['nvcc', '--version'], capture_output=True, text=True, check=True)
 #match = re.search(r'release (\d+\.\d+)', command.stdout)
 #CUDA_VERSION = float(match.group(1))
+
+command = [
+    'nvidia-smi',
+    '--query-gpu=index,name,compute_cap',
+    '--format=csv,noheader,nounits'
+]
+result = subprocess.run(command, capture_output=True, text=True, check=True)
+compute_capabilities = result.stdout.strip().splitlines()
+
+CUDA_CAPABILITIES = []
+for line in compute_capabilities:
+    CUDA_CAPABILITY = line.split(',')[2].strip().split()[0]
+    CUDA_CAPABILITIES.append(CUDA_CAPABILITY)
 
 # masks info
 masks_info = [
