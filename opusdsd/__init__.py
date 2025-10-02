@@ -89,7 +89,7 @@ class Plugin(pwem.Plugin):
         if all(int(major) == 7 for major in CUDA_CAPABILITIES):
             FILE = 'environment.yml'
         else:
-            FILE = 'environmentcu11.yml'
+            FILE = 'environmentcu11torch11.yml'
 
         # try to get CONDA activation command
         installCmds = [
