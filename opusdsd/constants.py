@@ -80,7 +80,7 @@ compute_capabilities = result.stdout.strip().splitlines()
 
 CUDA_CAPABILITIES = []
 for line in compute_capabilities:
-    CUDA_CAPABILITY = line.split(',')[2].strip().split()[0]
+    CUDA_CAPABILITY = line.split(',')[2].strip().split('.')[0]
     CUDA_CAPABILITIES.append(CUDA_CAPABILITY)
 
 # masks info

@@ -86,7 +86,7 @@ class Plugin(pwem.Plugin):
         ENV_NAME = getOpusDsdEnvName(version)
         FLAG = f"opusdsd_{version}_installed"
 
-        if int(CUDA_CAPABILITIES.all()) == 7:
+        if all(int(major) == 7 for major in CUDA_CAPABILITIES):
             FILE = 'environment.yml'
         else:
             FILE = 'environmentcu11.yml'
@@ -99,7 +99,7 @@ class Plugin(pwem.Plugin):
             'pip install -e . &&',
         ]
 
-        if int(CUDA_CAPABILITIES.all()) == 7:
+        if all(int(major) == 7 for major in CUDA_CAPABILITIES):
             installCmds += [
                 'pip install numpy==1.21.0 &&',
                 'pip install seaborn==0.13.2 &&'
