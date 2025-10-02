@@ -2,7 +2,7 @@
 # *
 # * Authors:     Grigory Sharov (gsharov@mrc-lmb.cam.ac.uk) [1]
 # *              James Krieger (jmkrieger@cnb.csic.es) [2]
-# *              Eduardo Garc�a (eduardo.garcia@cnb.csic.es) [2]
+# *              Eduardo García (eduardo.garcia@cnb.csic.es) [2]
 # *
 # * [1] MRC Laboratory of Molecular Biology (MRC-LMB)
 # * [2] Unidad de  Biocomputacion, Centro Nacional de Biotecnologia, CSIC (CNB-CSIC)
@@ -294,7 +294,7 @@ class OpusDsdProtAnalyze(ProtProcessParticles,ProtFlexBase):
     def _runProgram(self, program, args, fromRelion=False):
         gpus = ','.join(str(i) for i in self.getGpuList())
         if not fromRelion:
-            self.runJob(Plugin.getProgram(program, gpus, fromCryodrgn=True), args)
+            self.runJob(Plugin.getProgram(program, gpus, fromCryodrgn=True), args, env=pwutils.Environ())
         else:
             self.runJob(Plugin.getRelionProgram(program), args)
 

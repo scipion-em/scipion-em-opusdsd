@@ -263,9 +263,8 @@ class OpusDsdProtTrain(ProtProcessParticles, ProtFlexBase):
         self.mode = self.getRunMode()
 
         if self.abInitio:
-            if not self.mode == MODE_RESUME:
-                self._insertFunctionStep(self.convertInputStep)
-                self._insertFunctionStep(self.runParseMdStep)
+            self._insertFunctionStep(self.convertInputStep)
+            self._insertFunctionStep(self.runParseMdStep)
 
         self._insertFunctionStep(self.runTrainingStep)
 
@@ -370,24 +369,42 @@ class OpusDsdProtTrain(ProtProcessParticles, ProtFlexBase):
         else:
             inputParticles = self._getFileName('input_parts')
 
+        args = inputParticles
+
         inputMask = self._getFileName('input_mask')
 
         if self.abInitio:
-            if self.mode == MODE_RESUME:
-                files = [file for file in os.listdir(self._getExtra()) if file.startswith('weights')]
+            files = [file for file in os.listdir(self._getExtra()) if file.startswith('weights')]
+            if self.mode == MODE_RESUME and len(files) != 0:
                 initEpoch = max([int(os.path.basename(self._getExtra(file)).split('.')[1]) for file in files])
+                weights = self._getExtra(f'weights.{initEpoch}.pkl')
+                z = self._getExtra(f'z.{initEpoch}.pkl')
+                args += ' --load %s ' % weights
+                args += '--latents %s' % z
+
+            args += ' --num-epochs %d ' % self.numEpochs
         else:
-            if self.mode == MODE_RESUME:
-                files = [file for file in os.listdir(self._getExtra()) if file.startswith('weights')]
+            files = [file for file in os.listdir(self._getExtra()) if file.startswith('weights')]
+            if self.mode == MODE_RESUME and len(files) != 0:
                 prevEpoch = os.path.basename(self._getWorkDir()).split('.')[1]
                 initEpoch = max([int(os.path.basename(os.path.abspath(file)).split('.')[1]) for file in files])
+
+                totalEpochs = self._getEpoch(prevEpoch) + 2
+                args += ' --num-epochs %d ' % totalEpochs
             else:
                 pwutils.cleanPath(self._getExtra())
                 shutil.copytree(self._getFileName('workTrainDir'), self._getExtra())
                 initEpoch = os.path.basename(self._getWorkDir()).split('.')[1]
 
-        args = inputParticles
-        args += ' --outdir %s ' % self._getExtra()
+                totalEpochs = self._getEpoch(initEpoch) + 2
+                args += ' --num-epochs %d ' % totalEpochs
+
+            weights = self._getExtra(f'Results.{initEpoch}/weights.{initEpoch}.pkl')
+            z = self._getExtra(f'Results.{initEpoch}/z.{initEpoch}.pkl')
+            args += '--load %s ' % weights
+            args += '--latents %s ' % z
+
+        args += '--outdir %s ' % self._getExtra()
         args += '--ref_vol %s ' % inputMask
         args += '--zdim %d ' % self.zDim
 
@@ -401,33 +418,11 @@ class OpusDsdProtTrain(ProtProcessParticles, ProtFlexBase):
         outputCtfs = self._getExtra('ctfs.pkl')
         args += '--ctf %s ' % outputCtfs
 
-        if self.mode == MODE_RESUME:
-            weights = self._getExtra(f'weights.{initEpoch}.pkl')
-            z = self._getExtra(f'z.{initEpoch}.pkl')
-            args += '--load %s ' % weights
-            args += '--latents %s ' % z
-        elif not self.abInitio:
-            weights = self._getExtra(f'Results.{initEpoch}/weights.{initEpoch}.pkl')
-            z = self._getExtra(f'Results.{initEpoch}/z.{initEpoch}.pkl')
-            args += '--load %s ' % weights
-            args += '--latents %s ' % z
-
         args += '--split %s ' % self._getExtra('sp-split.pkl')
         args += '--valfrac %f ' % self.valFrac
         args += '--verbose '
         args += '--relion31 '
         args += '--lazy-single '
-
-        if self.abInitio:
-            args += '--num-epochs %d ' % self.numEpochs
-        else:
-            if self.mode == MODE_RESUME:
-                totalEpochs = self._getEpoch(prevEpoch) + 2
-                args += '--num-epochs %d ' % totalEpochs
-            else:
-                totalEpochs = self._getEpoch(initEpoch) + 2
-                args += '--num-epochs %d ' % totalEpochs
-
         args += '--batch-size %d ' % self.batchSize
 
         if self.weightDecay.get() != 0:
@@ -518,7 +513,7 @@ class OpusDsdProtTrain(ProtProcessParticles, ProtFlexBase):
     def _runProgram(self, program, args, fromRelion=False):
         gpus = ','.join(str(i) for i in self.getGpuList())
         if not fromRelion:
-            self.runJob(Plugin.getProgram(program, gpus, fromCryodrgn=True), args)
+            self.runJob(Plugin.getProgram(program, gpus, fromCryodrgn=True), args, env=pwutils.Environ())
         else:
             self.runJob(Plugin.getRelionProgram(program), args)
 
