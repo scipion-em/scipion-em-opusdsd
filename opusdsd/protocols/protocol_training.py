@@ -234,7 +234,7 @@ class OpusDsdProtTrain(ProtProcessParticles, ProtFlexBase):
                       label='Validation image fraction',
                       help='Fraction of images held for validation.')
 
-        form.addParam('downFrac', params.FloatParam, default=0.5,
+        form.addParam('downFrac', params.FloatParam, default=1.0,
                       label='Downsampling fraction', expertLevel=params.LEVEL_ADVANCED,
                       help='Downsample to this fraction of original size. You can set it according to '
                            'resolution of consensus model and the templateres you set')
@@ -513,7 +513,7 @@ class OpusDsdProtTrain(ProtProcessParticles, ProtFlexBase):
     def _runProgram(self, program, args, fromRelion=False):
         gpus = ','.join(str(i) for i in self.getGpuList())
         if not fromRelion:
-            self.runJob(Plugin.getProgram(program, gpus, fromCryodrgn=True), args, env=pwutils.Environ())
+            self.runJob(Plugin.getProgram(program, gpus, fromCryodrgn=True), args, env=Plugin.getEnviron())
         else:
             self.runJob(Plugin.getRelionProgram(program), args)
 

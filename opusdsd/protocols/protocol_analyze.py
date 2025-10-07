@@ -294,7 +294,7 @@ class OpusDsdProtAnalyze(ProtProcessParticles,ProtFlexBase):
     def _runProgram(self, program, args, fromRelion=False):
         gpus = ','.join(str(i) for i in self.getGpuList())
         if not fromRelion:
-            self.runJob(Plugin.getProgram(program, gpus, fromCryodrgn=True), args, env=pwutils.Environ())
+            self.runJob(Plugin.getProgram(program, gpus, fromCryodrgn=True), args, env=Plugin.getEnviron())
         else:
             self.runJob(Plugin.getRelionProgram(program), args)
 

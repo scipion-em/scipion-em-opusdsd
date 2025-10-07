@@ -62,6 +62,7 @@ class Plugin(pwem.Plugin):
         if 'PYTHONPATH' in environ:
             # this is required for python virtual env to work
             del environ['PYTHONPATH']
+        environ['LD_LIBRARY_PATH'] = ""
         return environ
 
     @classmethod
