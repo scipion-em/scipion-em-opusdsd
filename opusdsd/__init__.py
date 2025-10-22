@@ -2,7 +2,7 @@
 # *
 # * Authors:     Grigory Sharov (gsharov@mrc-lmb.cam.ac.uk) [1]
 # *              James Krieger (jmkrieger@cnb.csic.es) [2]
-# *              Eduardo Garc�a (eduardo.garcia@cnb.csic.es) [2]
+# *              Eduardo García (eduardo.garcia@cnb.csic.es) [2]
 # *
 # * [1] MRC Laboratory of Molecular Biology (MRC-LMB)
 # * [2] Unidad de  Biocomputacion, Centro Nacional de Biotecnologia, CSIC (CNB-CSIC)
@@ -184,9 +184,9 @@ class Plugin(pwem.Plugin):
         return fullProgram
 
     @classmethod
-    def getRelionProgram(cls, program):
-        """ Import Relion Program. """
-        fullProgram = 'cd %s && cd bin/ && ./%s' % (cls.getVar(RELION_HOME), program)
+    def getXmippProgram(cls, program):
+        """ Import Xmipp Program. """
+        fullProgram = 'cd %s && cd bin/ && ./%s' % (cls.getVar(XMIPP_HOME), program)
         return fullProgram
 
     @classmethod

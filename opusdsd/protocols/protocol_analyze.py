@@ -26,15 +26,13 @@
 # *  e-mail address 'scipion@cnb.csic.es'
 # *
 # **************************************************************************
-import os, shutil
-import numpy as np
+import shutil
 import pyworkflow.utils as pwutils
 import pyworkflow.protocol.params as params
 import pyworkflow.object as pwobj
 from pyworkflow.constants import PROD
 from pwem.protocols import ProtProcessParticles, ProtFlexBase
 import pwem.objects as emobj
-from .. import Plugin
 from ..constants import *
 from ..utils import *
 
@@ -52,6 +50,7 @@ class OpusDsdProtAnalyze(ProtProcessParticles,ProtFlexBase):
         """ Centralize how files are called within the analysis protocol. """
         myDict = {
             'workTrainDir': self._getOpusDSDTrainingProtocol()._getExtra(),
+            'input_mask': self._getExtra('input_mask.mrc'),
             'output_vol': 'vol_%(id)01d.mrc',
             'output_volN_pc': 'pc%(PC)d/vol_%(id)01d.mrc',
             'output_volN_km': 'kmeans%(ksamples)d/vol_%(id)01d.mrc',
@@ -120,6 +119,10 @@ class OpusDsdProtAnalyze(ProtProcessParticles,ProtFlexBase):
     def _insertAllSteps(self):
         self._createFilenameTemplatesAnalyze()
 
+        pwutils.cleanPath(self._getExtra())
+        shutil.copytree(self._getFileName('workTrainDir'), self._getExtra())
+        shutil.move(self._getExtra() + '/run.log', self._getWorkDir() + '/run.log')
+
         self._insertFunctionStep(self.convertInputStep)
         self._insertFunctionStep(self.runAnalysisStep)
         self._insertFunctionStep(self.runEvalVolStep)
@@ -128,23 +131,20 @@ class OpusDsdProtAnalyze(ProtProcessParticles,ProtFlexBase):
     # --------------------------- STEPS functions -----------------------------
 
     def convertInputStep(self):
-        pwutils.cleanPath(self._getExtra())
-        shutil.copytree(self._getFileName('workTrainDir'), self._getExtra())
-        shutil.move(self._getExtra() + '/run.log', self._getWorkDir() + '/run.log')
-
         self.initEpoch = os.path.basename(self._getWorkDir()).split('.')[1]
         self.zDim = self._getOpusDSDTrainingProtocol().zDim
         self.downFrac = self._getOpusDSDTrainingProtocol().downFrac
-        self.inputMask = self._getOpusDSDTrainingProtocol().inputMask.get()
+        self.inputMask = self._getFileName('input_mask')
 
-        weights = self._getWorkDir() + f'/weights.{self.initEpoch}.pkl'
-        weightsNew = self._getWorkDir() + f'/weights_new.{self.initEpoch}.pkl'
-        self.runJob(Plugin.getTorchLoadProgram(self._getWorkDir(), weights, weightsNew, 'weights'), '')
+        self.weights = self._getWorkDir() + f'/weights.{self.initEpoch}.pkl'
+        self.weightsNew = self._getWorkDir() + f'/weights_new.{self.initEpoch}.pkl'
+        self.config = self._getExtra() + '/config.pkl'
+        self.runJob(Plugin.getTorchLoadProgram(self._getWorkDir(), self.weights, self.weightsNew, 'weights'), '')
 
         # When computing the encoder, we need a new Apix for asserting equal shapes on convolutional matrices
         self.wr = window_r(self.inputMask)
         crop_vol_size = self._getWorkDir() + '/crop_vol_size'
-        self.runJob(Plugin.getTorchLoadProgram(self._getWorkDir(), weightsNew, crop_vol_size, 'eval_vol'), '')
+        self.runJob(Plugin.getTorchLoadProgram(self._getWorkDir(), self.weightsNew, crop_vol_size, 'eval_vol'), '')
         self.crop_vol_size = np.loadtxt(crop_vol_size + '.txt').shape[-1]
 
         render_size = (int(float(self._getBoxSize()) * float(self.downFrac)) // 2) * 2
@@ -153,74 +153,16 @@ class OpusDsdProtAnalyze(ProtProcessParticles,ProtFlexBase):
 
     def runAnalysisStep(self):
         """ Call OPUS-DSD with the appropriate parameters to analyze """
-        poseDir = self._getWorkDir() + f'/pose.{self.initEpoch}.pkl'
-
-        args = self._getWorkDir()
-        args += ' %d ' % int(self.initEpoch)
-        args += '--outdir %s ' % self._out(self.initEpoch)
-        args += '--vanilla '
-        args += '--D %d ' % self._getOpusDSDTrainingProtocol().templateres
-        args += '--pose %s ' % poseDir
-        args += '--pc %d ' % self.numPCs
-
-        if self.ksamples.get() % int(self.zDim) == 0:
-            args += '--ksample %d ' % self.ksamples
-        else:
-            raise ValueError(f"Error while asserting, ksamples mod zDim {self.zDim} (selected in previous training) must be 0, "
-                         "please change ksamples accordingly")
-
-        if self.psamples.get() % int(self.zDim) == 0:
-            args += '--psample %d' % self.psamples
-        else:
-            raise ValueError(f"Error while asserting, psamples mod zDim {self.zDim} (selected in previous training) must be 0, "
-                         "please change psamples accordingly")
-
+        args = self._getAnalyzeArgs()
         self._runProgram('analyze', args)
 
     def runEvalVolStep(self):
         """ Call OPUS-DSD with the appropriate parameters to analyze """
-        weights = self._getWorkDir() + f'/weights.{self.initEpoch}.pkl'
-        weightsNew = self._getWorkDir() + f'/weights_new.{self.initEpoch}.pkl'
-
-        config = self._getExtra() + '/config.pkl'
-        if self.sampleMode.get() == PCA:
-            zFile = self._out(self.initEpoch, self._getFileName('z_valuesN_pc', PC=self.PC.get()))
-        elif self.sampleMode.get() == KMEANS:
-            zFile = self._out(self.initEpoch, self._getFileName('z_valuesN_km', ksamples=self.ksamples.get()))
-
-        if os.path.exists(weightsNew):
-            args = '--load %s ' % weightsNew
-        else:
-            args = '--load $s ' % weights
-
-        args += '--config %s ' % config
-
-        if self.sampleMode.get() == KMEANS:
-            args += '-o %s ' % self._out(self.initEpoch, 'kmeans%d') % self.ksamples.get()
-        elif self.sampleMode.get() == PCA:
-            args += '-o %s ' % self._out(self.initEpoch, 'pc%d') % self.PC.get()
-
-        args += '--prefix vol_ '
-        args += '--zfile %s ' % zFile
-        args += '--Apix %f ' % round(self.newApix, 2)
-        args += '--enc-layers %d ' % self._getOpusDSDTrainingProtocol().qLayers
-        args += '--enc-dim %d ' % self._getOpusDSDTrainingProtocol().qDim
-        args += '--zdim %d ' % int(self.zDim)
-        args += '--encode-mode grad '
-        args += '--dec-layers %d ' % self._getOpusDSDTrainingProtocol().pLayers
-        args += '--dec-dim %d ' % self._getOpusDSDTrainingProtocol().pDim
-        args += '--pe-type vanilla '
-        args += '--template-type conv '
-        args += '--activation relu'
-
+        args = self._getEvalVolArgs()
         self._runProgram('eval_vol', args)
 
     def createOutputStep(self):
         """ Create the protocol outputs. """
-        weights = self._getWorkDir() + f'/weights.{self.initEpoch}.pkl'
-        weightsNew = self._getWorkDir() + f'/weights_new.{self.initEpoch}.pkl'
-        config = self._getExtra() + '/config.pkl'
-
         # Creating a set of particles with z_values
         inSet = self._getInputParticles()
         zIterValues = iter(self._getParticlesZvalues(self.initEpoch))
@@ -237,12 +179,12 @@ class OpusDsdProtAnalyze(ProtProcessParticles,ProtFlexBase):
             outParticle.setZFlex(list(zValue))
             outSet.append(outParticle)
 
-        if os.path.exists(weightsNew):
-            outSet.getFlexInfo().setAttr(WEIGHTS, pwobj.String(weightsNew))
+        if os.path.exists(self.weightsNew):
+            outSet.getFlexInfo().setAttr(WEIGHTS, pwobj.String(self.weightsNew))
         else:
-            outSet.getFlexInfo().setAttr(WEIGHTS, pwobj.String(weights))
+            outSet.getFlexInfo().setAttr(WEIGHTS, pwobj.String(self.weights))
 
-        outSet.getFlexInfo().setAttr(CONFIG, pwobj.String(config))
+        outSet.getFlexInfo().setAttr(CONFIG, pwobj.String(self.config))
         outSet.getFlexInfo().setAttr(ZDIM, pwobj.Integer(self.zDim))
         outSet.getFlexInfo().setAttr(DOWNFRAC, pwobj.Float(self.downFrac))
         outSet.getFlexInfo().setAttr(CROP_VOL_SIZE, pwobj.Integer(self.crop_vol_size))
@@ -280,6 +222,68 @@ class OpusDsdProtAnalyze(ProtProcessParticles,ProtFlexBase):
 
         return errors
 
+    # --------------------------- ARGS functions -----------------------------
+
+    def _getAnalyzeArgs(self):
+        poseDir = self._getWorkDir() + f'/pose.{self.initEpoch}.pkl'
+
+        args = self._getWorkDir()
+        args += ' %d ' % int(self.initEpoch)
+        args += '--outdir %s ' % self._out(self.initEpoch)
+        args += '--vanilla '
+        args += '--D %d ' % self._getOpusDSDTrainingProtocol().templateres
+        args += '--pose %s ' % poseDir
+        args += '--pc %d ' % self.numPCs
+
+        if self.ksamples.get() % int(self.zDim) == 0:
+            args += '--ksample %d ' % self.ksamples
+        else:
+            raise ValueError(
+                f"Error while asserting, ksamples mod zDim {self.zDim} (selected in previous training) must be 0, "
+                "please change ksamples accordingly")
+
+        if self.psamples.get() % int(self.zDim) == 0:
+            args += '--psample %d' % self.psamples
+        else:
+            raise ValueError(
+                f"Error while asserting, psamples mod zDim {self.zDim} (selected in previous training) must be 0, "
+                "please change psamples accordingly")
+
+        return args
+
+    def _getEvalVolArgs(self):
+        if self.sampleMode.get() == PCA:
+            zFile = self._out(self.initEpoch, self._getFileName('z_valuesN_pc', PC=self.PC.get()))
+        elif self.sampleMode.get() == KMEANS:
+            zFile = self._out(self.initEpoch, self._getFileName('z_valuesN_km', ksamples=self.ksamples.get()))
+
+        if os.path.exists(self.weightsNew):
+            args = '--load %s ' % self.weightsNew
+        else:
+            args = '--load $s ' % self.weights
+
+        args += '--config %s ' % self.config
+
+        if self.sampleMode.get() == KMEANS:
+            args += '-o %s ' % self._out(self.initEpoch, 'kmeans%d') % self.ksamples.get()
+        elif self.sampleMode.get() == PCA:
+            args += '-o %s ' % self._out(self.initEpoch, 'pc%d') % self.PC.get()
+
+        args += '--prefix vol_ '
+        args += '--zfile %s ' % zFile
+        args += '--Apix %f ' % round(self.newApix, 2)
+        args += '--enc-layers %d ' % self._getOpusDSDTrainingProtocol().qLayers
+        args += '--enc-dim %d ' % self._getOpusDSDTrainingProtocol().qDim
+        args += '--zdim %d ' % int(self.zDim)
+        args += '--encode-mode grad '
+        args += '--dec-layers %d ' % self._getOpusDSDTrainingProtocol().pLayers
+        args += '--dec-dim %d ' % self._getOpusDSDTrainingProtocol().pDim
+        args += '--pe-type vanilla '
+        args += '--template-type conv '
+        args += '--activation relu'
+
+        return args
+
     # --------------------------- UTILS functions -----------------------------
 
     def _getInputParticles(self):
@@ -291,12 +295,12 @@ class OpusDsdProtAnalyze(ProtProcessParticles,ProtFlexBase):
     def _getExtra(self, *paths):
         return os.path.abspath(self._getExtraPath(*paths))
 
-    def _runProgram(self, program, args, fromRelion=False):
+    def _runProgram(self, program, args, fromXmipp=False):
         gpus = ','.join(str(i) for i in self.getGpuList())
-        if not fromRelion:
+        if not fromXmipp:
             self.runJob(Plugin.getProgram(program, gpus, fromCryodrgn=True), args, env=pwutils.Environ())
         else:
-            self.runJob(Plugin.getRelionProgram(program), args)
+            self.runJob(Plugin.getXmippProgram(program), args)
 
     def _getWorkDir(self):
         workDir = [dir for dir in os.listdir(self._getExtra()) if dir.startswith('Results')][0]

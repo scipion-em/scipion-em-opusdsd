@@ -2,7 +2,7 @@
 # *
 # * Authors:     Grigory Sharov (gsharov@mrc-lmb.cam.ac.uk) [1]
 # *              James Krieger (jmkrieger@cnb.csic.es) [2]
-# *              Eduardo Garc�a (eduardo.garcia@cnb.csic.es) [2]
+# *              Eduardo García (eduardo.garcia@cnb.csic.es) [2]
 # *
 # * [1] MRC Laboratory of Molecular Biology (MRC-LMB)
 # * [2] Unidad de  Biocomputacion, Centro Nacional de Biotecnologia, CSIC (CNB-CSIC)
@@ -54,8 +54,7 @@ def generateVolumes(zValues, weights, config, outdir, Apix, boxSize, crop_vol_si
            env=Plugin.getEnviron())
 
 def window_r(inputMask):
-    filename = inputMask.getFileName()
-    mask = mrc.read(os.path.abspath(filename))
+    mask = mrc.read(os.path.abspath(inputMask))
 
     in_vol_nonzeros = np.stack(np.nonzero(mask), axis=1)
     in_vol_mins = in_vol_nonzeros.min(axis=0)
