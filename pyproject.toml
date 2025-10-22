@@ -7,7 +7,8 @@ name = "scipion-em-opusdsd"
 dynamic = ["version", "dependencies"]
 
 authors = [
-    {name = "James Krieger", email = "jamesmkrieger@gmail.com"}
+    {name = "James Krieger", email = "jamesmkrieger@gmail.com"},
+    {name = "Eduardo García", email= "edugarde01@gmail.com"}
 ]
 description = "Plugin to use Opusdsd programs within the Scipion framework"
 readme = "README.rst"
