@@ -27,6 +27,8 @@
 # *
 # **************************************************************************
 
+import sys, subprocess
+
 V0_3_2B = "0.3.2b"
 V1_1_0 = "v1.1.0"
 
@@ -37,7 +39,7 @@ VERSIONS = [V0_3_2B, V1_1_0]
 OPUSDSD_DEFAULT_VER_NUM = V1_1_0
 
 OPUSDSD_HOME = 'OPUSDSD_HOME'
-RELION_HOME = 'RELION_HOME'
+XMIPP_HOME = 'XMIPP_HOME'
 
 DEFAULT_ENV_NAME = getOpusDsdEnvName(OPUSDSD_DEFAULT_VER_NUM)
 DEFAULT_ACTIVATION_CMD = 'conda activate ' + DEFAULT_ENV_NAME
@@ -56,9 +58,30 @@ WEIGHTSNEW = "_opusdsdWeightsNew"
 CONFIG = "_opusdsdConfig"
 ZDIM = "_opusdsdZDim"
 DOWNFRAC = "_opusdsdDownFrac"
+CROP_VOL_SIZE = "_opusdsdCropVolSize"
+WINDOW_R = "_opusdsdWindowR"
 
 # FlexHub program
 OPUSDSD = "Opus-DSD"
+
+# nvcc --version CUDA
+#import re, subprocess
+#command = subprocess.run(['nvcc', '--version'], capture_output=True, text=True, check=True)
+#match = re.search(r'release (\d+\.\d+)', command.stdout)
+#CUDA_VERSION = float(match.group(1))
+
+command = [
+    'nvidia-smi',
+    '--query-gpu=index,name,compute_cap',
+    '--format=csv,noheader,nounits'
+]
+result = subprocess.run(command, capture_output=True, text=True, check=True)
+compute_capabilities = result.stdout.strip().splitlines()
+
+CUDA_CAPABILITIES = []
+for line in compute_capabilities:
+    CUDA_CAPABILITY = line.split(',')[2].strip().split('.')[0]
+    CUDA_CAPABILITIES.append(CUDA_CAPABILITY)
 
 # masks info
 masks_info = [

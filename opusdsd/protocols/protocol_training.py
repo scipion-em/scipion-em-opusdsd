@@ -1,5 +1,4 @@
-# **************************************************************************
-# *
+# ***********************************************************************
 # * Authors:     Grigory Sharov (gsharov@mrc-lmb.cam.ac.uk) [1]
 # *              James Krieger (jmkrieger@cnb.csic.es) [2]
 # *              Eduardo García (eduardo.garcia@cnb.csic.es) [2]
@@ -29,6 +28,7 @@
 import os, shutil
 import pickle
 from pwem.constants import ALIGN_PROJ, ALIGN_NONE
+from pyworkflow.protocol.constants import *
 import pyworkflow.utils as pwutils
 import pyworkflow.protocol.params as params
 from pyworkflow.plugin import Domain
@@ -89,7 +89,7 @@ class OpusDsdProtTrain(ProtProcessParticles, ProtFlexBase):
                            'a mandatory imported volume.')
 
         group.addParam('inputVolume', params.PointerParam, pointerClass='Volume', condition='useMask==%s' % False,
-                      label='Input Volume',
+                      allowsNull=True, label='Input Volume',
                       help="The suggestion is to use a solvent mask created from this alrady provided volume. "
                            "Then, the program will focus on fitting the contents inside the created mask "
                            "(more specifically, the 2D projection of a 3D mask). Since the majority part of the "
@@ -97,7 +97,7 @@ class OpusDsdProtTrain(ProtProcessParticles, ProtFlexBase):
                            "By specifying a mask, our program will automatically determine a suitable crop rate "
                            "to keep only the region with densities.")
 
-        group.addParam('threshold', params.FloatParam, default=0.008, condition='useMask==%s' % False,
+        group.addParam('threshold', params.FloatParam, default=0.01, condition='useMask==%s' % False,
                       label='Initial binarisation threshold',
                       expertLevel=params.LEVEL_ADVANCED,
                       help="This threshold is used to make an initial binary "
@@ -108,20 +108,8 @@ class OpusDsdProtTrain(ProtProcessParticles, ProtFlexBase):
                            "find the lowest threshold that gives no noise "
                            "peaks outside the reconstruction.")
 
-        group.addParam('extend', params.IntParam, default=2, condition='useMask==%s' % False,
-                      label='Extend binary mask by (px)',
-                      expertLevel=params.LEVEL_ADVANCED,
-                      help='The initial binary mask is extended this number of '
-                           'pixels in all directions.')
-
-        group.addParam('edge', params.IntParam, default=6, condition='useMask==%s' % False,
-                      label='Add a soft-edge (px)',
-                      expertLevel=params.LEVEL_ADVANCED,
-                      help='The extended binary mask is further extended with '
-                           'a raised-cosine soft edge of the specified width.')
-
         group.addParam('inputMask', params.PointerParam, pointerClass='VolumeMask',
-                      condition='useMask==%s' % True,
+                      condition='useMask==%s' % True, allowsNull=True,
                       label="Input Mask",
                       help="The suggestion is to use an already given solvent mask. "
                            "If it isn't given, it must be calculated from the volume given, which will be necessary. "
@@ -138,17 +126,10 @@ class OpusDsdProtTrain(ProtProcessParticles, ProtFlexBase):
                        help="Previously executed 'opusdsd training'. "
                             "This will allow to load the necessary results the previous protocol achieved to get")
 
-        form.addParam('Apix', params.FloatParam, default=-1,
-                      label='Pixel size in A/pix',
-                      help='If left as -1, pixel size will be the same as the sampling rate of the input particles.')
-
-        form.addParam('boxSize', params.IntParam, default=-1,
-                      label='Box size of reconstruction (pixels)',
-                      help='If left as -1, box size will be the same as the dimensions of the input particles.')
-
         form.addSection(label='Training')
-        group = form.addGroup('Multi-Body Training')
+        group = form.addGroup('Multi-Body Training', condition='abInitio==%s' % True)
         group.addParam('multiBody', params.BooleanParam, default=False,
+                       condition='abInitio==%s' % True,
                        label="Multi-Body Training?",
                        help="If set to yes, a multi-body training will be performed, if set to no, then a single-body"
                             "training will be performed.")
@@ -176,45 +157,60 @@ class OpusDsdProtTrain(ProtProcessParticles, ProtFlexBase):
 
         form.addParam('zDim', params.IntParam, default=12,
                       validators=[params.Positive],
+                      condition='abInitio==%s' % True,
                       label='Dimension of latent variable',
                       help='It is recommended to first train on lower '
                            'resolution images (e.g. D=128) with '
                            '--zdim 1 and with --zdim 12 using the '
                            'default architecture (fast). Values between [1, 12].')
 
-        group = form.addGroup('Encoder', expertLevel=params.LEVEL_ADVANCED)
+        form.addParam('lazyLoad', params.BooleanParam, default=False,
+                      label='Lazy loading particles into memory',
+                      help='If set True, all particles will be loaded into memory, which would consume more memory but less '
+                           'CPU capacity. If set False, it will take into account by default 8 workers in CPU, so it will '
+                           'consume less memory but slightly more CPU capacity.')
+
+        group = form.addGroup('Encoder', condition='abInitio==%s' % True, expertLevel=params.LEVEL_ADVANCED)
         group.addParam('qLayers', params.IntParam, default=3,
+                       condition='abInitio==%s' % True,
                        label='Number of hidden layers of the encoder',
                        expertLevel=params.LEVEL_ADVANCED)
         group.addParam('qDim', params.IntParam, default=256,
+                       condition='abInitio==%s' % True,
                        label='Number of nodes in hidden layers of the encoder',
                        expertLevel=params.LEVEL_ADVANCED)
 
-        group = form.addGroup('Decoder', expertLevel=params.LEVEL_ADVANCED)
+        group = form.addGroup('Decoder', condition='abInitio==%s' % True, expertLevel=params.LEVEL_ADVANCED)
         group.addParam('pLayers', params.IntParam, default=3,
+                       condition='abInitio==%s' % True,
                        label='Number of hidden layers of the decoder',
                        expertLevel=params.LEVEL_ADVANCED)
         group.addParam('pDim', params.IntParam, default=256,
+                       condition='abInitio==%s' % True,
                        label='Number of nodes in hidden layers of the decoder',
                        expertLevel=params.LEVEL_ADVANCED)
 
         form.addSection(label='Network parameters')
         form.addParam('batchSize', params.IntParam, default=8,
+                      condition='abInitio==%s' % True,
                       label='Batch size',
                       help='Batch size for processing images.')
 
         form.addParam('weightDecay', params.FloatParam, default=0.0,
+                      condition='abInitio==%s' % True,
                       label='Weight Decay',
                       expertLevel=params.LEVEL_ADVANCED,
                       help='Weight decay in Adam optimizer.')
 
         form.addParam('betaControl', params.FloatParam, default=1.,
+                      condition='abInitio==%s' % True,
                       label='Beta restraint strength for KL target',
                       expertLevel=params.LEVEL_ADVANCED,
                       help='Beta parameter that controls the strength of the beta-VAE prior. The larger '
                            'the argument, the stronger the strength of the standard Gaussian restraint.')
 
         form.addParam('lamb', params.FloatParam, default=0.5,
+                      condition='abInitio==%s' % True,
                       label='Restraint strength for umap prior',
                       expertLevel=params.LEVEL_ADVANCED,
                       help='This controls the stretch of the UMAP-inspired prior for '
@@ -222,6 +218,7 @@ class OpusDsdProtTrain(ProtProcessParticles, ProtFlexBase):
                            'information for images in the same projection class. Possible values between [0.1, 3.].')
 
         form.addParam('bfactor', params.FloatParam, default=3.75,
+                      condition='abInitio==%s' % True,
                       label='B-factor for reconstruction',
                       expertLevel=params.LEVEL_ADVANCED,
                       help='Reconstruction will be blurred by this factor, which corresponds to '
@@ -229,25 +226,30 @@ class OpusDsdProtTrain(ProtProcessParticles, ProtFlexBase):
                            'values between [3.,6.]. You may consider using higher values for more dynamic '
                            'structures.')
 
-        form.addParam('learningRate', params.FloatParam, default=2e-4,
+        form.addParam('learningRate', params.FloatParam, default=1e-4,
+                      condition='abInitio==%s' % True,
                       label='Learning rate',
                       help='Learning rate in Adam optimizer.')
 
         form.addParam('accumStep', params.IntParam, default=4,
+                      condition='abInitio==%s' % True,
                       label='Gradient accumulation', expertLevel=params.LEVEL_ADVANCED,
                       help='Gradient accumulation step for optimizer to increase the effective batch size. Best when '
                            'working with one gpu.')
 
         form.addParam('valFrac', params.FloatParam, default=0.2,
+                      condition='abInitio==%s' % True,
                       label='Validation image fraction',
                       help='Fraction of images held for validation.')
 
-        form.addParam('downFrac', params.FloatParam, default=0.7,
-                      label='Downsampling fraction',
+        form.addParam('downFrac', params.FloatParam, default=1.0,
+                      condition='abInitio==%s' % True,
+                      label='Downsampling fraction', expertLevel=params.LEVEL_ADVANCED,
                       help='Downsample to this fraction of original size. You can set it according to '
                            'resolution of consensus model and the templateres you set')
 
-        form.addParam('templateres', params.IntParam, default=224,
+        form.addParam('templateres', params.IntParam, default=144,
+                      condition='abInitio==%s' % True,
                       label='Output size',
                       help='Define the output size of 3d volume of the convolutional network. You may keep it '
                            'around > D*downFrac, which is larger than the input size.')
@@ -278,8 +280,10 @@ class OpusDsdProtTrain(ProtProcessParticles, ProtFlexBase):
 
     def convertInputStep(self):
         """ Create a star file as expected by OPUS-DSD."""
+        run = self if self.abInitio else self._getOpusDSDTrainingProtocol()
+
         inParts = self._getInputParticles().getFileName()
-        if self.multiBody:
+        if run.multiBody:
             starFilename = self._getFileName('input_multiparts')
         else:
             starFilename = self._getFileName('input_parts')
@@ -294,29 +298,27 @@ class OpusDsdProtTrain(ProtProcessParticles, ProtFlexBase):
                 alignType=alignType)
 
         # Create links to binary files and write the .mrc file
-        maskFilename = self._getFileName('input_mask')
-        if self.useMask:
-            inMask = self._getInputMask().getFileName()
-            shutil.copy(inMask, maskFilename)
-        else:
-            volFilename = self._getFileName('input_volume')
-            inVol = self._getInputVolume().getFileName()
-            shutil.copy(inVol, volFilename)
+        if self.abInitio:
+            maskFilename = self._getFileName('input_mask')
+            if self.useMask:
+                inMask = self._getInputMask().getFileName()
+                shutil.copy(inMask, maskFilename)
+            else:
+                volFilename = self._getFileName('input_volume')
+                inVol = self._getInputVolume().getFileName()
+                shutil.copy(inVol, volFilename)
 
-            args = '--i %s ' % volFilename
-            args += '--o %s ' % maskFilename
-            args += '--ini_threshold %f ' % self.threshold
-            args += '--extend_inimask %d ' % self.extend
-            args += '--width_soft_edge %d ' % self.edge
-            args += '--angpix %f' % self._getInputVolume().getSamplingRate()
+                args = '--i %s ' % volFilename
+                args += '--o %s ' % maskFilename
+                args += '--substitute binarize %f ' % self.threshold
 
-            self._runProgram('relion_mask_create', args, fromRelion=True)
+                self._runProgram('xmipp_transform_threshold', args, fromXmipp=True)
 
         # In case it's a multi rigid-body training, we create a starfile with all the mask parameters
-        if self.multiBody:
+        if run.multiBody:
             if not os.path.exists(self._getExtra('Masks')):
                 pwutils.makePath(self._getExtra('Masks'))
-            for i, mask in enumerate(self.multiMasks):
+            for i, mask in enumerate(run.multiMasks):
                 multiMaskFilename = self._getFileName('input_multimask', mask=i)
                 multiMask = mask.get().getFileName()
                 shutil.copy(multiMask, multiMaskFilename)
@@ -327,151 +329,38 @@ class OpusDsdProtTrain(ProtProcessParticles, ProtFlexBase):
             self._createMultiStarFile(n_bodies)
 
     def runParseMdStep(self):
-        # Creating both poses and ctfs files for training and evaluation
-        if self.multiBody:
-            args = self._getFileName('input_multiparts')
+        # Creating both poses and ctf files for training and evaluation
+        run = self if self.abInitio else self._getOpusDSDTrainingProtocol()
+        args = self._getParsePoseCtfArgs()
+
+        if not run.multiBody:
+            self._runProgram('parse_pose_star', args[0])
         else:
-            args = self._getFileName('input_parts')
-
-        if self.boxSize.get() != -1:
-            args += ' -D %d ' % self.boxSize.get()
-        else:
-            args += ' -D %d ' % self._getBoxSize()
-
-        args += '--relion31 '
-
-        if self.Apix.get() != -1:
-            args += '--Apix %f ' % self.Apix.get()
-        else:
-            args += '--Apix %f ' % self._getInputParticles().getSamplingRate()
-
-        args += '-o %s' % self._getFileName('output_poses')
-
-        if not self.multiBody:
-            self._runProgram('parse_pose_star', args)
-        else:
-            mask_params = [star for star in os.listdir(self._getExtra()) if star.endswith('bodies-tight-mask.star')]
-            args += ' --masks %s ' % self._getExtra(mask_params[0])
-            args += '--bodies %d' % int(mask_params[0][0])
-
-            self._runProgram('parse_multi_pose_star', args)
+            self._runProgram('parse_multi_pose_star', args[0])
 
         self._fixPosesTranslations()
 
-        if self.multiBody:
-            args = self._getFileName('input_multiparts')
-        else:
-            args = self._getFileName('input_parts')
-
-        if self.Apix.get() != -1:
-            args += ' --Apix %f ' % self.Apix.get()
-        else:
-            args += ' --Apix %f ' % self._getInputParticles().getSamplingRate()
-
-        if self.boxSize.get() != -1:
-            args += '-D %d ' % self.boxSize.get()
-        else:
-            args += '-D %d ' % self._getBoxSize()
-
-        args += '--relion31 '
-        args += '-o %s ' % self._getFileName('output_ctfs')
-
-        acquisition = self._getInputParticles().getAcquisition()
-
-        args += '--kv %f ' % acquisition.getVoltage()
-        args += '--cs %f ' % acquisition.getSphericalAberration()
-        args += '-w %f ' % acquisition.getAmplitudeContrast()
-        args += '--ps 0.'  # required due to OPUS-DSD parsing bug
-
-        self._runProgram('parse_ctf_star', args)
+        self._runProgram('parse_ctf_star', args[1])
 
     def runTrainingStep(self):
-        # Call OPUS-DSD with the appropriate parameters
-        if self.multiBody:
-            inputParticles = self._getFileName('input_multiparts')
-        else:
-            inputParticles = self._getFileName('input_parts')
-
-        inputMask = self._getFileName('input_mask')
+        # Training step for Opus-DSD
+        run = self if self.abInitio else self._getOpusDSDTrainingProtocol()
+        args = self._getTrainingArgs()
 
         if self.abInitio:
-            initEpoch = self.numEpochs.get() - 2
-        else:
-            pwutils.cleanPath(self._getExtra())
-            shutil.copytree(self._getFileName('workTrainDir'), self._getExtra())
-            initEpoch = os.path.basename(self._getWorkDir()).split('.')[1]
-
-        args = inputParticles
-        args += ' --outdir %s ' % self._getExtra()
-        args += '--ref_vol %s ' % inputMask
-        args += '--zdim %d ' % self.zDim
-
-        outputPoses = self._getExtra('poses.pkl')
-        args += '--poses %s ' % outputPoses
-
-        if self.multiBody:
-            args += '--zaffdim %d ' % self.zAffDim
-            args += '--masks %s ' % self._getExtra('mask_params.pkl')
-
-        outputCtfs = self._getExtra('ctfs.pkl')
-        args += '--ctf %s ' % outputCtfs
-
-        if not self.abInitio:
-            weights = self._getExtra(f'Results.{initEpoch}/weights.{initEpoch}.pkl')
-            z = self._getExtra(f'Results.{initEpoch}/z.{initEpoch}.pkl')
-            args += '--load %s ' % weights
-            args += '--latents %s ' % z
-
-        args += '--split %s ' % self._getExtra('sp-split.pkl')
-        args += '--valfrac %f ' % self.valFrac
-        args += '--verbose '
-        args += '--relion31 '
-        args += '--lazy-single '
-
-        if self.abInitio:
-            args += '--num-epochs %d ' % self.numEpochs
-        else:
-            totalEpochs = self._getEpoch(initEpoch) + 2
-            args += '--num-epochs %d ' % totalEpochs
-
-        args += '--batch-size %d ' % self.batchSize
-
-        if self.weightDecay.get() != 0:
-            args += '--wd %f ' % self.weightDecay
-
-        args += '--lr %f ' % self.learningRate
-        args += '--accum-step %d ' % self.accumStep
-        args += '--lamb %f ' % self.lamb
-
-        if self.multiBody:
-            if self.downFrac.get() * (self._getBoxSize() - 1) >= 128:
-                args += '--downfrac %f ' % self.downFrac
+            if not run.multiBody:
+                self._runProgram('train_cv', args)
             else:
-                raise ValueError("Error while asserting, please change the downsampling factor accordingly, as "
-                                 "the product between the factor and the original size of the particles are not above 128")
+                self._runProgram('train_multi', args)
+
+            self._outputRegroup(self.numEpochs.get() - 2)
         else:
-            args += '--downfrac %f ' % self.downFrac
+            if not run.multiBody:
+                self._runProgram('train_cv', args[0])
+            else:
+                self._runProgram('train_multi', args[0])
 
-        args += '--templateres %d ' % self.templateres
-        args += '--bfactor %f ' % self.bfactor
-        args += '--beta cos '
-        args += '--beta-control %f ' % self.betaControl
-        args += '--num-gpus %d ' % len(self.getGpuList())
-        args += '--enc-layers %d ' % self.qLayers
-        args += '--enc-dim %d ' % self.qDim
-        args += '--encode-mode grad '
-        args += '--dec-layers %d ' % self.pLayers
-        args += '--dec-dim %d ' % self.pDim
-        args += '--pe-type vanilla '
-        args += '--template-type conv '
-        args += '--activation relu'
-
-        if not self.multiBody:
-            self._runProgram('train_cv', args)
-        else:
-            self._runProgram('train_multi', args)
-
-        self._outputRegroup(initEpoch)
+            self._outputRegroup(args[1])
 
     # --------------------------- INFO functions ------------------------------
 
@@ -494,6 +383,151 @@ class OpusDsdProtTrain(ProtProcessParticles, ProtFlexBase):
 
         return errors
 
+    # --------------------------- ARGS functions -----------------------------
+
+    def _getParsePoseCtfArgs(self):
+        run = self if self.abInitio else self._getOpusDSDTrainingProtocol()
+
+        if run.multiBody:
+            pose_args = self._getFileName('input_multiparts')
+        else:
+            pose_args = self._getFileName('input_parts')
+
+        pose_args += ' -D %d ' % self._getBoxSize()
+        pose_args += '--relion31 '
+        pose_args += '--Apix %f ' % self._getInputParticles().getSamplingRate()
+        pose_args += '-o %s' % self._getFileName('output_poses')
+
+        if run.multiBody:
+            mask_params = [star for star in os.listdir(self._getExtra()) if star.endswith('bodies-tight-mask.star')]
+            pose_args += ' --masks %s ' % self._getExtra(mask_params[0])
+            pose_args += '--bodies %d' % int(mask_params[0][0])
+
+        if run.multiBody:
+            ctf_args = self._getFileName('input_multiparts')
+        else:
+            ctf_args = self._getFileName('input_parts')
+
+        ctf_args += ' --Apix %f ' % self._getInputParticles().getSamplingRate()
+        ctf_args += '-D %d ' % self._getBoxSize()
+        ctf_args += '--relion31 '
+        ctf_args += '-o %s ' % self._getFileName('output_ctfs')
+
+        acquisition = self._getInputParticles().getAcquisition()
+
+        ctf_args += '--kv %f ' % acquisition.getVoltage()
+        ctf_args += '--cs %f ' % acquisition.getSphericalAberration()
+        ctf_args += '-w %f ' % acquisition.getAmplitudeContrast()
+        ctf_args += '--ps 0.'  # required due to OPUS-DSD parsing bug
+
+        return pose_args, ctf_args
+
+    def _getTrainingArgs(self):
+        run = self if self.abInitio else self._getOpusDSDTrainingProtocol()
+
+        if run.multiBody:
+            inputParticles = self._getFileName('input_multiparts')
+        else:
+            inputParticles = self._getFileName('input_parts')
+
+        inputMask = self._getFileName('input_mask')
+
+        args = inputParticles
+
+        if self.abInitio:
+            files = [file for file in os.listdir(self._getExtra()) if file.startswith('weights')]
+            if len(files) > 1:
+                initEpoch = max([int(os.path.basename(self._getExtra(file)).split('.')[1]) for file in files])
+                weights = self._getExtra(f'weights.{initEpoch}.pkl')
+                z = self._getExtra(f'z.{initEpoch}.pkl')
+                args += ' --load %s ' % weights
+                args += '--latents %s' % z
+
+            args += ' --num-epochs %d ' % self.numEpochs
+        else:
+            files = [file for file in os.listdir(self._getExtra()) if file.startswith('weights')]
+            if len(files) > 1:
+                prevEpoch = os.path.basename(self._getWorkDir()).split('.')[1]
+                initEpoch = max([int(os.path.basename(os.path.abspath(file)).split('.')[1]) for file in files])
+
+                totalEpochs = self._getEpoch(prevEpoch) + 2
+                args += ' --num-epochs %d ' % totalEpochs
+            else:
+                pwutils.cleanPath(self._getExtra())
+                shutil.copytree(self._getFileName('workTrainDir'), self._getExtra())
+                initEpoch = os.path.basename(self._getWorkDir()).split('.')[1]
+
+                totalEpochs = self._getEpoch(initEpoch) + 2
+                args += ' --num-epochs %d ' % totalEpochs
+
+            weights = self._getExtra(f'Results.{initEpoch}/weights.{initEpoch}.pkl')
+            z = self._getExtra(f'Results.{initEpoch}/z.{initEpoch}.pkl')
+            args += '--load %s ' % weights
+            args += '--latents %s ' % z
+
+        args += '--outdir %s ' % self._getExtra()
+        args += '--ref_vol %s ' % inputMask
+        args += '--zdim %d ' % run.zDim
+
+        outputPoses = self._getExtra('poses.pkl')
+        args += '--poses %s ' % outputPoses
+
+        if run.multiBody:
+            args += '--zaffdim %d ' % run.zAffDim
+            args += '--masks %s ' % self._getExtra('mask_params.pkl')
+
+        outputCtfs = self._getExtra('ctfs.pkl')
+        args += '--ctf %s ' % outputCtfs
+
+        args += '--split %s ' % self._getExtra('sp-split.pkl')
+        args += '--valfrac %f ' % run.valFrac
+        args += '--verbose '
+        args += '--relion31 '
+        args += '--lazy-single '
+
+        if self.lazyLoad:
+            args += '--inmem '
+
+        args += '--batch-size %d ' % run.batchSize
+
+        if run.weightDecay.get() != 0:
+            args += '--wd %f ' % run.weightDecay
+
+        args += '--lr %f ' % run.learningRate
+        args += '--accum-step %d ' % run.accumStep
+        args += '--lamb %f ' % run.lamb
+
+        if run.multiBody:
+            if run.downFrac.get() * (self._getBoxSize() - 1) >= 128:
+                args += '--downfrac %f ' % run.downFrac
+            else:
+                raise ValueError("Error while asserting, please change the downsampling factor accordingly, as "
+                                 "the product between the factor and the original size of the particles are not above 128")
+        else:
+            args += '--downfrac %f ' % run.downFrac
+
+        args += '--templateres %d ' % run.templateres
+        args += '--bfactor %f ' % run.bfactor
+        args += '--beta cos '
+        args += '--beta-control %f ' % run.betaControl
+        args += '--num-gpus %d ' % len(self.getGpuList())
+        args += '--enc-layers %d ' % run.qLayers
+        args += '--enc-dim %d ' % run.qDim
+        args += '--encode-mode grad '
+        args += '--dec-layers %d ' % run.pLayers
+        args += '--dec-dim %d ' % run.pDim
+        args += '--pe-type vanilla '
+        args += '--template-type conv '
+        args += '--activation relu'
+
+        if self.abInitio:
+            return args
+        else:
+            if len(files) > 1:
+                return args, prevEpoch
+            else:
+                return args, initEpoch
+
     # --------------------------- UTILS functions -----------------------------
 
     def _getInputParticles(self):
@@ -515,12 +549,12 @@ class OpusDsdProtTrain(ProtProcessParticles, ProtFlexBase):
         workDir = [dir for dir in os.listdir(self._getExtra()) if dir.startswith('Results')][0]
         return self._getExtra(workDir)
 
-    def _runProgram(self, program, args, fromRelion=False):
+    def _runProgram(self, program, args, fromXmipp=False):
         gpus = ','.join(str(i) for i in self.getGpuList())
-        if not fromRelion:
-            self.runJob(Plugin.getProgram(program, gpus, fromCryodrgn=True), args)
+        if not fromXmipp:
+            self.runJob(Plugin.getProgram(program, gpus, fromCryodrgn=True), args, env=pwutils.Environ())
         else:
-            self.runJob(Plugin.getRelionProgram(program), args)
+            self.runJob(Plugin.getXmippProgram(program), args)
 
     def _inputHasAlign(self):
         return self._getInputParticles().hasAlignmentProj()
@@ -543,9 +577,10 @@ class OpusDsdProtTrain(ProtProcessParticles, ProtFlexBase):
 
     def _fixPosesTranslations(self):
         # In case poses.pkl file has 3 dimensions, we set them to 2 so that the program is able to read it.
+        run = self if self.abInitio else self._getOpusDSDTrainingProtocol()
         posesFile = self._getFileName('output_poses')
         with open(posesFile, 'rb') as f:
-            if self.multiBody:
+            if run.multiBody:
                 rot, trans, euler, *_ = pickle.load(f)
             else:
                 rot, trans, euler = pickle.load(f)
@@ -564,19 +599,19 @@ class OpusDsdProtTrain(ProtProcessParticles, ProtFlexBase):
             self._epoch = self.numEpochs.get() + int(initEpoch)
         return self._epoch
 
-    def _outputRegroup(self, initEpoch):
+    def _outputRegroup(self, epoch):
         # Eliminating previous Results directory to focus on next training (just in not-ab-initio case)
         if not self.abInitio:
             workDir = [dir for dir in os.listdir(self._getExtra()) if dir.startswith('Results')][0]
             pwutils.cleanPath(self._getExtra(workDir))
         # Creating outputs for the evaluated results from training
-        outputFolder = self._getExtra(f'Results.{self._getEpoch(initEpoch)}')
+        outputFolder = self._getExtra(f'Results.{self._getEpoch(epoch)}')
         os.makedirs(outputFolder, exist_ok=True)
         files = [file for file in os.listdir(self._getExtra()) if len(file.split('.')) == 3]
         for file in files:
-            if file.endswith('.pkl') and int(file.split('.')[1]) == self._getEpoch(initEpoch):
+            if file.endswith('.pkl') and int(file.split('.')[1]) == self._getEpoch(epoch):
                 shutil.move(self._getExtra(file), os.path.join(outputFolder, file))
-            elif file.endswith('.pkl') and int(file.split('.')[1]) != self._getEpoch(initEpoch):
+            elif file.endswith('.pkl') and int(file.split('.')[1]) != self._getEpoch(epoch):
                 os.remove(self._getExtra(file))
 
     def _getOpusDSDTrainingProtocol(self):

@@ -34,10 +34,9 @@ from pyworkflow import Config
 
 from .constants import *
 
-__version__ = '3.2.0'
+__version__ = '3.3.0'
 _references = ['Luo2023']
 _logo = "cryodrgn_logo.png"
-
 
 class Plugin(pwem.Plugin):
     _url = "https://github.com/scipion-em/scipion-em-opusdsd"
@@ -63,6 +62,7 @@ class Plugin(pwem.Plugin):
         if 'PYTHONPATH' in environ:
             # this is required for python virtual env to work
             del environ['PYTHONPATH']
+        environ['LD_LIBRARY_PATH'] = ""
         return environ
 
     @classmethod
@@ -87,15 +87,30 @@ class Plugin(pwem.Plugin):
         ENV_NAME = getOpusDsdEnvName(version)
         FLAG = f"opusdsd_{version}_installed"
 
+        if all(int(major) == 7 for major in CUDA_CAPABILITIES):
+            FILE = 'environment.yml'
+        else:
+            FILE = 'environmentcu11torch11.yml'
+
         # try to get CONDA activation command
         installCmds = [
             cls.getCondaActivationCmd(),
-            f'conda env create --name {ENV_NAME} --file environment.yml --yes &&',
+            f'conda env create --name {ENV_NAME} --file {FILE} --yes &&',
             f'conda activate {ENV_NAME} &&',
             'pip install -e . &&',
-            'pip install numpy==1.21.0 &&',
-            'pip install seaborn==0.13.2 &&'
-            #'pip install torch==2.0.0 torchvision==0.15.1 torchaudio==2.0.1 --index-url https://download.pytorch.org/whl/cu118 &&',
+        ]
+
+        if all(int(major) == 7 for major in CUDA_CAPABILITIES):
+            installCmds += [
+                'pip install numpy==1.21.0 &&',
+                'pip install seaborn==0.13.2 &&'
+            ]
+        else:
+            installCmds += [
+                'pip install pillow==10.4.0 &&'
+            ]
+
+        installCmds += [
             f'touch {FLAG}'  # Flag installation finished
         ]
 
@@ -133,7 +148,7 @@ class Plugin(pwem.Plugin):
         """ Create Opus-DSD command line. """
         fullProgram = 'cd %s && %s && CUDA_VISIBLE_DEVICES=%s ' % (cls.getVar(OPUSDSD_HOME), cls.getActivationCmd(), gpus)
         if fromCryodrgn:
-                fullProgram += 'python -m cryodrgn.commands.%s' % program
+            fullProgram += 'python -m cryodrgn.commands.%s' % program
         else:
             fullProgram += 'sh %s/%s.sh' % (cls.getVar(OPUSDSD_HOME), program)
         return fullProgram
@@ -161,12 +176,17 @@ class Plugin(pwem.Plugin):
                 'data[\'model_state_dict\'][\'encoder.in_mask\'] = in_mask_param; '
                 f'torch.save(data, \'{output_file}\')"'
             )
+        elif option == 'eval_vol':
+            fullProgram += (
+                'crop_vol_size = data[\'model_state_dict\'][\'encoder.in_mask\'].squeeze()[0]; '
+                f'np.savetxt(\'{output_file + ".txt"}\', crop_vol_size.cpu().numpy())"'
+            )
         return fullProgram
 
     @classmethod
-    def getRelionProgram(cls, program):
-        """ Import Relion Program. """
-        fullProgram = 'cd %s && cd bin/ && ./%s' % (cls.getVar(RELION_HOME), program)
+    def getXmippProgram(cls, program):
+        """ Import Xmipp Program. """
+        fullProgram = 'cd %s && cd bin/ && ./%s' % (cls.getVar(XMIPP_HOME), program)
         return fullProgram
 
     @classmethod
