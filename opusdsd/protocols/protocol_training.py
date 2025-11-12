@@ -164,6 +164,12 @@ class OpusDsdProtTrain(ProtProcessParticles, ProtFlexBase):
                            '--zdim 1 and with --zdim 12 using the '
                            'default architecture (fast). Values between [1, 12].')
 
+        form.addParam('lazyLoad', params.BooleanParam, default=False,
+                      label='Lazy loading particles into memory',
+                      help='If set True, all particles will be loaded into memory, which would consume more memory but less '
+                           'CPU capacity. If set False, it will take into account by default 8 workers in CPU, so it will '
+                           'consume less memory but slightly more CPU capacity.')
+
         group = form.addGroup('Encoder', condition='abInitio==%s' % True, expertLevel=params.LEVEL_ADVANCED)
         group.addParam('qLayers', params.IntParam, default=3,
                        condition='abInitio==%s' % True,
@@ -263,8 +269,6 @@ class OpusDsdProtTrain(ProtProcessParticles, ProtFlexBase):
     def _insertAllSteps(self):
         self._createFilenameTemplates()
         self._createFilenameTemplatesTraining()
-
-        self.mode = self.getRunMode()
 
         if self.abInitio:
             self._insertFunctionStep(self.convertInputStep)
@@ -432,7 +436,7 @@ class OpusDsdProtTrain(ProtProcessParticles, ProtFlexBase):
 
         if self.abInitio:
             files = [file for file in os.listdir(self._getExtra()) if file.startswith('weights')]
-            if self.mode == MODE_RESUME and len(files) != 0:
+            if len(files) > 1:
                 initEpoch = max([int(os.path.basename(self._getExtra(file)).split('.')[1]) for file in files])
                 weights = self._getExtra(f'weights.{initEpoch}.pkl')
                 z = self._getExtra(f'z.{initEpoch}.pkl')
@@ -442,7 +446,7 @@ class OpusDsdProtTrain(ProtProcessParticles, ProtFlexBase):
             args += ' --num-epochs %d ' % self.numEpochs
         else:
             files = [file for file in os.listdir(self._getExtra()) if file.startswith('weights')]
-            if self.mode == MODE_RESUME and len(files) != 0:
+            if len(files) > 1:
                 prevEpoch = os.path.basename(self._getWorkDir()).split('.')[1]
                 initEpoch = max([int(os.path.basename(os.path.abspath(file)).split('.')[1]) for file in files])
 
@@ -480,6 +484,10 @@ class OpusDsdProtTrain(ProtProcessParticles, ProtFlexBase):
         args += '--verbose '
         args += '--relion31 '
         args += '--lazy-single '
+
+        if self.lazyLoad:
+            args += '--inmem '
+
         args += '--batch-size %d ' % run.batchSize
 
         if run.weightDecay.get() != 0:
@@ -515,7 +523,7 @@ class OpusDsdProtTrain(ProtProcessParticles, ProtFlexBase):
         if self.abInitio:
             return args
         else:
-            if self.mode == MODE_RESUME:
+            if len(files) > 1:
                 return args, prevEpoch
             else:
                 return args, initEpoch
