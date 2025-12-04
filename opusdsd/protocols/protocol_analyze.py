@@ -235,19 +235,20 @@ class OpusDsdProtAnalyze(ProtProcessParticles,ProtFlexBase):
         args += '--pose %s ' % poseDir
         args += '--pc %d ' % self.numPCs
 
-        if self.ksamples.get() % int(self.zDim) == 0:
-            args += '--ksample %d ' % self.ksamples
-        else:
-            raise ValueError(
-                f"Error while asserting, ksamples mod zDim {self.zDim} (selected in previous training) must be 0, "
-                "please change ksamples accordingly")
-
-        if self.psamples.get() % int(self.zDim) == 0:
-            args += '--psample %d' % self.psamples
-        else:
-            raise ValueError(
-                f"Error while asserting, psamples mod zDim {self.zDim} (selected in previous training) must be 0, "
-                "please change psamples accordingly")
+        if self.sampleMode == KMEANS:
+            if self.ksamples.get() % int(self.zDim) == 0:
+                args += '--ksample %d ' % self.ksamples
+            else:
+                raise ValueError(
+                    f"Error while asserting, ksamples mod zDim {self.zDim} (selected in previous training) must be 0, "
+                    "please change ksamples accordingly")
+        elif self.sampleMode == PCA:
+            if self.psamples.get() % int(self.zDim) == 0:
+                args += '--psample %d' % self.psamples
+            else:
+                raise ValueError(
+                    f"Error while asserting, psamples mod zDim {self.zDim} (selected in previous training) must be 0, "
+                    "please change psamples accordingly")
 
         return args
 
