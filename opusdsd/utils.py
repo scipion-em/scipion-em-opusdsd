@@ -31,6 +31,7 @@ from pyworkflow.utils.process import runJob
 from opusdsd import Plugin
 import numpy as np
 import mrcfile as mrc
+import pickle
 
 def generateVolumes(zValues, weights, config, outdir, Apix, boxSize, crop_vol_size, wr, downFrac, zDim):
     """ Call OPUS-DSD with the appropriate parameters to generate volumes """
@@ -52,15 +53,3 @@ def generateVolumes(zValues, weights, config, outdir, Apix, boxSize, crop_vol_si
 
     runJob(None, Plugin.getProgram('eval_vol', gpus='0'), ''.join(args),
            env=Plugin.getEnviron())
-
-def window_r(inputMask):
-    mask = mrc.read(os.path.abspath(inputMask))
-
-    in_vol_nonzeros = np.stack(np.nonzero(mask), axis=1)
-    in_vol_mins = in_vol_nonzeros.min(axis=0)
-    in_vol_maxs = in_vol_nonzeros.max(axis=0)
-    in_vol_maxs = mask.shape[-1] - in_vol_maxs
-    in_vol_min = min(in_vol_maxs.min(), in_vol_mins.min())
-    mask_frac = (mask.shape[-1] - in_vol_min * 2 + 4) / mask.shape[-1]
-
-    return min(mask_frac, 0.9)
