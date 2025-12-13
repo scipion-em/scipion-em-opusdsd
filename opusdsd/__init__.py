@@ -185,12 +185,6 @@ class Plugin(pwem.Plugin):
                 "trainApix = trainApix.item() if hasattr(trainApix, 'item') else trainApix; "
                 f'np.savetxt(\'{output_file + ".txt"}\', [trainApix])"'
             )
-        elif option == 'eval_vol':
-            fullProgram += (
-                f'data = torch.load(\'{file}\'); '
-                'crop_vol_size = data[\'model_state_dict\'][\'encoder.in_mask\'].squeeze()[0]; '
-                f'np.savetxt(\'{output_file + ".txt"}\', crop_vol_size.cpu().numpy())"'
-            )
         return fullProgram
 
     @classmethod

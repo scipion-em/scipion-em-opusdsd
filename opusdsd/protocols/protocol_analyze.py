@@ -141,15 +141,14 @@ class OpusDsdProtAnalyze(ProtProcessParticles,ProtFlexBase):
         self.config = self._getExtra() + '/config.pkl'
         self.runJob(Plugin.getTorchLoadProgram(self._getWorkDir(), self.weights, self.weightsNew, 'weights'), '')
 
-        # When computing the encoder, we need training Apix for asserting equal shapes on convolutional matrices
-        crop_vol_size = self._getWorkDir() + '/crop_vol_size'
-        self.runJob(Plugin.getTorchLoadProgram(self._getWorkDir(), self.weightsNew, crop_vol_size, 'eval_vol'), '')
-        self.crop_vol_size = np.loadtxt(crop_vol_size + '.txt').shape[-1]
-
         config = self._getWorkDir() + '/config'
         self.runJob(Plugin.getTorchLoadProgram(self._getWorkDir(), self.config, config, 'config'), '')
-        print(np.loadtxt(config + '.txt'))
-        self.newApix = np.loadtxt(config + '.txt')
+        trainApix = np.loadtxt(config + '.txt')
+
+        real_size = float(self._getBoxSize()) * float(self.downFrac)
+        render_size = (int(real_size) // 2) * 2
+        correction_factor = real_size / render_size
+        self.newApix = trainApix * correction_factor - 0.0001
 
     def runAnalysisStep(self):
         """ Call OPUS-DSD with the appropriate parameters to analyze """
@@ -187,7 +186,6 @@ class OpusDsdProtAnalyze(ProtProcessParticles,ProtFlexBase):
         outSet.getFlexInfo().setAttr(CONFIG, pwobj.String(self.config))
         outSet.getFlexInfo().setAttr(ZDIM, pwobj.Integer(self.zDim))
         outSet.getFlexInfo().setAttr(DOWNFRAC, pwobj.Float(self.downFrac))
-        outSet.getFlexInfo().setAttr(CROP_VOL_SIZE, pwobj.Integer(self.crop_vol_size))
 
         self._defineOutputs(outputParticles=outSet)
         self._defineSourceRelation(inSet, outSet)
@@ -228,7 +226,6 @@ class OpusDsdProtAnalyze(ProtProcessParticles,ProtFlexBase):
 
         args = self._getWorkDir()
         args += ' %d ' % int(self.initEpoch)
-        args += '--outdir %s ' % self._out(self.initEpoch)
         args += '--vanilla '
         args += '--D %d ' % self._getOpusDSDTrainingProtocol().templateres
         args += '--pose %s ' % poseDir
@@ -271,10 +268,10 @@ class OpusDsdProtAnalyze(ProtProcessParticles,ProtFlexBase):
 
         args += '--prefix vol_ '
         args += '--zfile %s ' % zFile
-        args += '--Apix %f ' % self.newApix
+        args += '--Apix %.6f ' % self.newApix
         args += '--enc-layers %d ' % self._getOpusDSDTrainingProtocol().qLayers
         args += '--enc-dim %d ' % self._getOpusDSDTrainingProtocol().qDim
-        args += '--zdim %d ' % int(self.zDim)
+        args += '--zdim %d ' % self.zDim
         args += '--encode-mode grad '
         args += '--dec-layers %d ' % self._getOpusDSDTrainingProtocol().pLayers
         args += '--dec-dim %d ' % self._getOpusDSDTrainingProtocol().pDim
