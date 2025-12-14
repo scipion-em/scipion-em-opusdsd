@@ -376,7 +376,7 @@ class OpusDsdProtTrain(ProtProcessParticles, ProtFlexBase):
         if self._getBoxSize() < 128:
             errors.append("OPUS-DSD requires a box size > 128 x 128 pixels.")
 
-        if self.templateres % 16 != 0:
+        if self.templateres.get() % 16 != 0:
             errors.append("Template resolution must be even!")
 
         return errors
