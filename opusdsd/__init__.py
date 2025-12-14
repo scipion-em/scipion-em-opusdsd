@@ -183,7 +183,9 @@ class Plugin(pwem.Plugin):
                 f"cfg = pickle.load(open(\'{file}\', 'rb')); "
                 "trainApix = cfg['model_args']['Apix']; "
                 "trainApix = trainApix.item() if hasattr(trainApix, 'item') else trainApix; "
-                f'np.savetxt(\'{output_file + ".txt"}\', [trainApix])"'
+                "crop_vol_size = cfg['model_args']['down_vol_size']; "
+                "crop_vol_size = crop_vol_size.item() if hasattr(crop_vol_size, 'item') else crop_vol_size; "
+                f'np.savetxt(\'{output_file + ".txt"}\', [trainApix, crop_vol_size])"'
             )
         return fullProgram
 

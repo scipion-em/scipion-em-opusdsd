@@ -242,12 +242,6 @@ class OpusDsdProtTrain(ProtProcessParticles, ProtFlexBase):
                       label='Validation image fraction',
                       help='Fraction of images held for validation.')
 
-        form.addParam('downFrac', params.FloatParam, default=1.0,
-                      condition='abInitio==%s' % True,
-                      label='Downsampling fraction', expertLevel=params.LEVEL_ADVANCED,
-                      help='Downsample to this fraction of original size. You can set it according to '
-                           'resolution of consensus model and the templateres you set')
-
         form.addParam('templateres', params.IntParam, default=144,
                       condition='abInitio==%s' % True,
                       label='Output size',
@@ -499,12 +493,12 @@ class OpusDsdProtTrain(ProtProcessParticles, ProtFlexBase):
 
         if run.multiBody:
             if run.downFrac.get() * (self._getBoxSize() - 1) >= 128:
-                args += '--downfrac %f ' % run.downFrac
+                args += '--downfrac 1.0 '
             else:
-                raise ValueError("Error while asserting, please change the downsampling factor accordingly, as "
-                                 "the product between the factor and the original size of the particles are not above 128")
+                raise ValueError("Error while asserting, please change the box size factor accordingly, as particles"
+                                 "must remain in 128x128 in multibody dynamics. ")
         else:
-            args += '--downfrac %f ' % run.downFrac
+            args += '--downfrac 1.0 '
 
         args += '--templateres %d ' % run.templateres
         args += '--bfactor %f ' % run.bfactor

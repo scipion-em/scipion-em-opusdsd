@@ -53,3 +53,23 @@ def generateVolumes(zValues, weights, config, outdir, Apix, boxSize, crop_vol_si
 
     runJob(None, Plugin.getProgram('eval_vol', gpus='0'), ''.join(args),
            env=Plugin.getEnviron())
+
+def checkCropSize(boxSize, downFrac, crop_vol_size, trainApix):
+    """ Check Opus-DSD Network crop_vol_size parameter and its dependency with candidateApix """
+
+    candidates = trainApix + np.linspace(-1, 1, 10000)
+    candidates = candidates[np.argsort(np.abs(candidates - trainApix))]
+    best_apix = trainApix
+    found = False
+    window_r = crop_vol_size / (float(boxSize) * float(downFrac))
+    for candidate in candidates:
+        ratio = trainApix / candidate
+        render_size = (int(float(boxSize) * float(downFrac) * ratio + 1e-6) // 2) * 2
+        final_size = int(render_size * window_r) // 2 * 2
+        if final_size == crop_vol_size:
+            best_apix = candidate
+            found = True
+            break
+
+    if not found: print(f'WARNING: No exact match found for size {crop_vol_size}. Using original.')
+    return best_apix

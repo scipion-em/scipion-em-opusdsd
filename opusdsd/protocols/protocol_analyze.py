@@ -141,14 +141,11 @@ class OpusDsdProtAnalyze(ProtProcessParticles,ProtFlexBase):
         self.config = self._getExtra() + '/config.pkl'
         self.runJob(Plugin.getTorchLoadProgram(self._getWorkDir(), self.weights, self.weightsNew, 'weights'), '')
 
-        config = self._getWorkDir() + '/config'
-        self.runJob(Plugin.getTorchLoadProgram(self._getWorkDir(), self.config, config, 'config'), '')
-        trainApix = np.loadtxt(config + '.txt')
-
-        real_size = float(self._getBoxSize()) * float(self.downFrac)
-        render_size = (int(real_size) // 2) * 2
-        correction_factor = real_size / render_size
-        self.newApix = trainApix * correction_factor - 0.0001
+        #config = self._getWorkDir() + '/config'
+        #self.runJob(Plugin.getTorchLoadProgram(self._getWorkDir(), self.config, config, 'config'), '')
+        #trainApix = np.loadtxt(config + '.txt')[0]
+        #crop_vol_size = np.loadtxt(config + '.txt')[1]
+        #self.newApix = checkCropSize(self._getBoxSize(), self.downFrac, crop_vol_size, trainApix)
 
     def runAnalysisStep(self):
         """ Call OPUS-DSD with the appropriate parameters to analyze """
@@ -193,7 +190,7 @@ class OpusDsdProtAnalyze(ProtProcessParticles,ProtFlexBase):
         # Creating a set of volumes with z_values depending on the sampleMode
         fn = self._getExtra('volumes.sqlite')
         files, zValues = self._getVolumesZCalc(sampleMode=self.sampleMode.get(), initEpoch=self.initEpoch, zDim=self.zDim)
-        volSet = self._createVolumeZSet(files, zValues, fn, self.newApix)
+        volSet = self._createVolumeZSet(files, zValues, fn, self._getInputParticles().getSamplingRate())
 
         self._defineOutputs(outputVolumes=volSet)
         self._defineSourceRelation(inSet, volSet)
@@ -268,7 +265,7 @@ class OpusDsdProtAnalyze(ProtProcessParticles,ProtFlexBase):
 
         args += '--prefix vol_ '
         args += '--zfile %s ' % zFile
-        args += '--Apix %.6f ' % self.newApix
+        args += '--Apix %.6f ' % self._getInputParticles().getSamplingRate()
         args += '--enc-layers %d ' % self._getOpusDSDTrainingProtocol().qLayers
         args += '--enc-dim %d ' % self._getOpusDSDTrainingProtocol().qDim
         args += '--zdim %d ' % self.zDim
