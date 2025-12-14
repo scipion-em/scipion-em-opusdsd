@@ -245,8 +245,9 @@ class OpusDsdProtTrain(ProtProcessParticles, ProtFlexBase):
         form.addParam('templateres', params.IntParam, default=144,
                       condition='abInitio==%s' % True,
                       label='Output size',
-                      help='Define the output size of 3d volume of the convolutional network. You may keep it '
-                           'around > D*downFrac, which is larger than the input size.')
+                      help='The output size of the reconstructed 3D volume in the intermediate steps of the convolutional network.'
+                           ' You may keep it around > D*downFrac, as it would mean a increase on the resolution. Problem: '
+                           'the higher this value is, more memory will be consumed.')
 
         form.addHidden(params.GPU_LIST, params.StringParam, default='0',
                        label="Choose GPU IDs",
