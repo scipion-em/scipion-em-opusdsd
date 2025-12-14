@@ -242,12 +242,6 @@ class OpusDsdProtTrain(ProtProcessParticles, ProtFlexBase):
                       label='Validation image fraction',
                       help='Fraction of images held for validation.')
 
-        form.addParam('templateres', params.IntParam, default=144,
-                      condition='abInitio==%s' % True,
-                      label='Output size',
-                      help='Define the output size of 3d volume of the convolutional network. You may keep it '
-                           'around > D*downFrac, which is larger than the input size.')
-
         form.addHidden(params.GPU_LIST, params.StringParam, default='0',
                        label="Choose GPU IDs",
                        help="GPU may have several cores. Set it to zero"
@@ -500,7 +494,7 @@ class OpusDsdProtTrain(ProtProcessParticles, ProtFlexBase):
         else:
             args += '--downfrac 1.0 '
 
-        args += '--templateres %d ' % run.templateres
+        args += '--templateres 192 '
         args += '--bfactor %f ' % run.bfactor
         args += '--beta cos '
         args += '--beta-control %f ' % run.betaControl
