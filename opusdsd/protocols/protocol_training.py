@@ -373,9 +373,6 @@ class OpusDsdProtTrain(ProtProcessParticles, ProtFlexBase):
         if not self._inputHasAlign():
             errors.append("Input particles have no alignment!")
 
-        if self._getBoxSize() < 128:
-            errors.append("OPUS-DSD requires a box size > 128 x 128 pixels.")
-
         if self.templateres.get() % 16 != 0:
             errors.append("Template resolution must be even!")
 
