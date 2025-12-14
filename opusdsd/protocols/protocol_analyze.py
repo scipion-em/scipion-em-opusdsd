@@ -213,6 +213,16 @@ class OpusDsdProtAnalyze(ProtProcessParticles,ProtFlexBase):
 
     def _validate(self):
         errors = []
+        zDim = self._getOpusDSDTrainingProtocol().zDim
+
+        if self.sampleMode == KMEANS:
+            if self.ksamples.get() % int(zDim) != 0:
+                errors.append("Error while asserting, ksamples mod zDim (selected in previous training) must be 0, "
+                    "please change ksamples accordingly")
+        elif self.sampleMode == PCA:
+            if self.psamples.get() % int(zDim) != 0:
+                errors.append("Error while asserting, psamples mod zDim (selected in previous training) must be 0, "
+                    "please change psamples accordingly")
 
         return errors
 
@@ -229,19 +239,9 @@ class OpusDsdProtAnalyze(ProtProcessParticles,ProtFlexBase):
         args += '--pc %d ' % self.numPCs
 
         if self.sampleMode == KMEANS:
-            if self.ksamples.get() % int(self.zDim) == 0:
-                args += '--ksample %d ' % self.ksamples
-            else:
-                raise ValueError(
-                    f"Error while asserting, ksamples mod zDim {self.zDim} (selected in previous training) must be 0, "
-                    "please change ksamples accordingly")
+            args += '--ksample %d ' % self.ksamples
         elif self.sampleMode == PCA:
-            if self.psamples.get() % int(self.zDim) == 0:
-                args += '--psample %d' % self.psamples
-            else:
-                raise ValueError(
-                    f"Error while asserting, psamples mod zDim {self.zDim} (selected in previous training) must be 0, "
-                    "please change psamples accordingly")
+            args += '--psample %d' % self.psamples
 
         return args
 
