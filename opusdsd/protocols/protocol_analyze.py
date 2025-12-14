@@ -211,7 +211,7 @@ class OpusDsdProtAnalyze(ProtProcessParticles,ProtFlexBase):
 
         return summary
 
-    def _validateBase(self):
+    def _validate(self):
         errors = []
 
         return errors

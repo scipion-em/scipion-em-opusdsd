@@ -364,7 +364,7 @@ class OpusDsdProtTrain(ProtProcessParticles, ProtFlexBase):
 
         return summary
 
-    def _validateBase(self):
+    def _validate(self):
         errors = []
 
         if self._getBoxSize() % 2 != 0:
