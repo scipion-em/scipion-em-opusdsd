@@ -374,7 +374,7 @@ class OpusDsdProtTrain(ProtProcessParticles, ProtFlexBase):
             errors.append("Input particles have no alignment!")
 
         if self.templateres.get() % 16 != 0:
-            errors.append("Template resolution must be even!")
+            errors.append("Template resolution (templateres) must be divisible by 16)!")
 
         return errors
 
