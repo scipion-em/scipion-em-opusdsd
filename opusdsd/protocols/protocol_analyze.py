@@ -133,7 +133,6 @@ class OpusDsdProtAnalyze(ProtProcessParticles,ProtFlexBase):
     def convertInputStep(self):
         self.initEpoch = os.path.basename(self._getWorkDir()).split('.')[1]
         self.zDim = self._getOpusDSDTrainingProtocol().zDim
-        self.downFrac = self._getOpusDSDTrainingProtocol().downFrac
         self.inputMask = self._getFileName('input_mask')
 
         self.weights = self._getWorkDir() + f'/weights.{self.initEpoch}.pkl'
@@ -182,7 +181,6 @@ class OpusDsdProtAnalyze(ProtProcessParticles,ProtFlexBase):
 
         outSet.getFlexInfo().setAttr(CONFIG, pwobj.String(self.config))
         outSet.getFlexInfo().setAttr(ZDIM, pwobj.Integer(self.zDim))
-        outSet.getFlexInfo().setAttr(DOWNFRAC, pwobj.Float(self.downFrac))
 
         self._defineOutputs(outputParticles=outSet)
         self._defineSourceRelation(inSet, outSet)
