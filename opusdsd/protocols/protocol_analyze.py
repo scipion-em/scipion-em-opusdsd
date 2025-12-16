@@ -133,7 +133,6 @@ class OpusDsdProtAnalyze(ProtProcessParticles,ProtFlexBase):
     def convertInputStep(self):
         self.initEpoch = os.path.basename(self._getWorkDir()).split('.')[1]
         self.zDim = self._getOpusDSDTrainingProtocol().zDim
-        self.downFrac = self._getOpusDSDTrainingProtocol().downFrac
         self.inputMask = self._getFileName('input_mask')
 
         self.weights = self._getWorkDir() + f'/weights.{self.initEpoch}.pkl'
@@ -141,15 +140,11 @@ class OpusDsdProtAnalyze(ProtProcessParticles,ProtFlexBase):
         self.config = self._getExtra() + '/config.pkl'
         self.runJob(Plugin.getTorchLoadProgram(self._getWorkDir(), self.weights, self.weightsNew, 'weights'), '')
 
-        # When computing the encoder, we need a new Apix for asserting equal shapes on convolutional matrices
-        self.wr = window_r(self.inputMask)
-        crop_vol_size = self._getWorkDir() + '/crop_vol_size'
-        self.runJob(Plugin.getTorchLoadProgram(self._getWorkDir(), self.weightsNew, crop_vol_size, 'eval_vol'), '')
-        self.crop_vol_size = np.loadtxt(crop_vol_size + '.txt').shape[-1]
-
-        render_size = (int(float(self._getBoxSize()) * float(self.downFrac)) // 2) * 2
-        newApix = self._getInputParticles().getSamplingRate() * self._getBoxSize() / render_size
-        self.newApix = newApix * float(self.crop_vol_size) / (float(self._getBoxSize()) * float(self.downFrac) * self.wr)
+        #config = self._getWorkDir() + '/config'
+        #self.runJob(Plugin.getTorchLoadProgram(self._getWorkDir(), self.config, config, 'config'), '')
+        #trainApix = np.loadtxt(config + '.txt')[0]
+        #crop_vol_size = np.loadtxt(config + '.txt')[1]
+        #self.newApix = checkCropSize(self._getBoxSize(), self.downFrac, crop_vol_size, trainApix)
 
     def runAnalysisStep(self):
         """ Call OPUS-DSD with the appropriate parameters to analyze """
@@ -186,9 +181,6 @@ class OpusDsdProtAnalyze(ProtProcessParticles,ProtFlexBase):
 
         outSet.getFlexInfo().setAttr(CONFIG, pwobj.String(self.config))
         outSet.getFlexInfo().setAttr(ZDIM, pwobj.Integer(self.zDim))
-        outSet.getFlexInfo().setAttr(DOWNFRAC, pwobj.Float(self.downFrac))
-        outSet.getFlexInfo().setAttr(CROP_VOL_SIZE, pwobj.Integer(self.crop_vol_size))
-        outSet.getFlexInfo().setAttr(WINDOW_R, pwobj.Float(self.wr))
 
         self._defineOutputs(outputParticles=outSet)
         self._defineSourceRelation(inSet, outSet)
@@ -196,7 +188,7 @@ class OpusDsdProtAnalyze(ProtProcessParticles,ProtFlexBase):
         # Creating a set of volumes with z_values depending on the sampleMode
         fn = self._getExtra('volumes.sqlite')
         files, zValues = self._getVolumesZCalc(sampleMode=self.sampleMode.get(), initEpoch=self.initEpoch, zDim=self.zDim)
-        volSet = self._createVolumeZSet(files, zValues, fn, round(self.newApix, 2))
+        volSet = self._createVolumeZSet(files, zValues, fn, self._getInputParticles().getSamplingRate())
 
         self._defineOutputs(outputVolumes=volSet)
         self._defineSourceRelation(inSet, volSet)
@@ -217,8 +209,18 @@ class OpusDsdProtAnalyze(ProtProcessParticles,ProtFlexBase):
 
         return summary
 
-    def _validateBase(self):
+    def _validate(self):
         errors = []
+        zDim = self._getOpusDSDTrainingProtocol().zDim
+
+        if self.sampleMode == KMEANS:
+            if self.ksamples.get() % int(zDim) != 0:
+                errors.append("Error while asserting, ksamples mod zDim (selected in previous training) must be 0, "
+                    "please change ksamples accordingly")
+        elif self.sampleMode == PCA:
+            if self.psamples.get() % int(zDim) != 0:
+                errors.append("Error while asserting, psamples mod zDim (selected in previous training) must be 0, "
+                    "please change psamples accordingly")
 
         return errors
 
@@ -229,25 +231,15 @@ class OpusDsdProtAnalyze(ProtProcessParticles,ProtFlexBase):
 
         args = self._getWorkDir()
         args += ' %d ' % int(self.initEpoch)
-        args += '--outdir %s ' % self._out(self.initEpoch)
         args += '--vanilla '
         args += '--D %d ' % self._getOpusDSDTrainingProtocol().templateres
         args += '--pose %s ' % poseDir
         args += '--pc %d ' % self.numPCs
 
-        if self.ksamples.get() % int(self.zDim) == 0:
+        if self.sampleMode == KMEANS:
             args += '--ksample %d ' % self.ksamples
-        else:
-            raise ValueError(
-                f"Error while asserting, ksamples mod zDim {self.zDim} (selected in previous training) must be 0, "
-                "please change ksamples accordingly")
-
-        if self.psamples.get() % int(self.zDim) == 0:
+        elif self.sampleMode == PCA:
             args += '--psample %d' % self.psamples
-        else:
-            raise ValueError(
-                f"Error while asserting, psamples mod zDim {self.zDim} (selected in previous training) must be 0, "
-                "please change psamples accordingly")
 
         return args
 
@@ -271,10 +263,10 @@ class OpusDsdProtAnalyze(ProtProcessParticles,ProtFlexBase):
 
         args += '--prefix vol_ '
         args += '--zfile %s ' % zFile
-        args += '--Apix %f ' % round(self.newApix, 2)
+        args += '--Apix %.6f ' % self._getInputParticles().getSamplingRate()
         args += '--enc-layers %d ' % self._getOpusDSDTrainingProtocol().qLayers
         args += '--enc-dim %d ' % self._getOpusDSDTrainingProtocol().qDim
-        args += '--zdim %d ' % int(self.zDim)
+        args += '--zdim %d ' % self.zDim
         args += '--encode-mode grad '
         args += '--dec-layers %d ' % self._getOpusDSDTrainingProtocol().pLayers
         args += '--dec-dim %d ' % self._getOpusDSDTrainingProtocol().pDim
@@ -307,7 +299,7 @@ class OpusDsdProtAnalyze(ProtProcessParticles,ProtFlexBase):
         return self._getExtra(workDir)
 
     def _out(self, initEpoch, *p):
-        if self._hasMultLatentVars():
+        if self._getOpusDSDTrainingProtocol().multiBody:
             return os.path.join(self._getWorkDir() + f'/defanalyze.{initEpoch}', *p)
         else:
             return os.path.join(self._getWorkDir() + f'/analyze.{initEpoch}', *p)

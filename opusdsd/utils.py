@@ -31,6 +31,7 @@ from pyworkflow.utils.process import runJob
 from opusdsd import Plugin
 import numpy as np
 import mrcfile as mrc
+import pickle
 
 def generateVolumes(zValues, weights, config, outdir, Apix, boxSize, crop_vol_size, wr, downFrac, zDim):
     """ Call OPUS-DSD with the appropriate parameters to generate volumes """
@@ -53,14 +54,22 @@ def generateVolumes(zValues, weights, config, outdir, Apix, boxSize, crop_vol_si
     runJob(None, Plugin.getProgram('eval_vol', gpus='0'), ''.join(args),
            env=Plugin.getEnviron())
 
-def window_r(inputMask):
-    mask = mrc.read(os.path.abspath(inputMask))
+def checkCropSize(boxSize, downFrac, crop_vol_size, trainApix):
+    """ Check Opus-DSD Network crop_vol_size parameter and its dependency with candidateApix """
 
-    in_vol_nonzeros = np.stack(np.nonzero(mask), axis=1)
-    in_vol_mins = in_vol_nonzeros.min(axis=0)
-    in_vol_maxs = in_vol_nonzeros.max(axis=0)
-    in_vol_maxs = mask.shape[-1] - in_vol_maxs
-    in_vol_min = min(in_vol_maxs.min(), in_vol_mins.min())
-    mask_frac = (mask.shape[-1] - in_vol_min * 2 + 4) / mask.shape[-1]
+    candidates = trainApix + np.linspace(-1, 1, 10000)
+    candidates = candidates[np.argsort(np.abs(candidates - trainApix))]
+    best_apix = trainApix
+    found = False
+    window_r = crop_vol_size / (float(boxSize) * float(downFrac))
+    for candidate in candidates:
+        ratio = trainApix / candidate
+        render_size = (int(float(boxSize) * float(downFrac) * ratio + 1e-6) // 2) * 2
+        final_size = int(render_size * window_r) // 2 * 2
+        if final_size == crop_vol_size:
+            best_apix = candidate
+            found = True
+            break
 
-    return min(mask_frac, 0.9)
+    if not found: print(f'WARNING: No exact match found for size {crop_vol_size}. Using original.')
+    return best_apix

@@ -34,7 +34,7 @@ from pyworkflow import Config
 
 from .constants import *
 
-__version__ = '3.3.0'
+__version__ = '3.4.0'
 _references = ['Luo2023']
 _logo = "cryodrgn_logo.png"
 
@@ -161,25 +161,31 @@ class Plugin(pwem.Plugin):
             'python -c "'
             'import torch; '
             'import numpy as np; '
-            f'data = torch.load(\'{file}\'); '
+            'import pickle; '
         )
         if option == 'pkl':
             fullProgram += (
+                f'data = torch.load(\'{file}\'); '
                 'npdata = {k: v.numpy() if hasattr(v, \'numpy\') else v for k, v in data.items()}; '
                 f'np.savez(\'{output_file + ".npz"}\', **npdata); '
                 f'np.savetxt(\'{output_file + ".txt"}\', npdata[list(npdata.keys())[0]])"'
             )
         elif option == 'weights':
             fullProgram += (
+                f'data = torch.load(\'{file}\'); '
                 'in_mask_param = data[\'model_state_dict\'][\'encoder.in_mask\']; '
                 'in_mask_param = in_mask_param.squeeze(1); '
                 'data[\'model_state_dict\'][\'encoder.in_mask\'] = in_mask_param; '
                 f'torch.save(data, \'{output_file}\')"'
             )
-        elif option == 'eval_vol':
+        elif option == 'config':
             fullProgram += (
-                'crop_vol_size = data[\'model_state_dict\'][\'encoder.in_mask\'].squeeze()[0]; '
-                f'np.savetxt(\'{output_file + ".txt"}\', crop_vol_size.cpu().numpy())"'
+                f"cfg = pickle.load(open(\'{file}\', 'rb')); "
+                "trainApix = cfg['model_args']['Apix']; "
+                "trainApix = trainApix.item() if hasattr(trainApix, 'item') else trainApix; "
+                "crop_vol_size = cfg['model_args']['down_vol_size']; "
+                "crop_vol_size = crop_vol_size.item() if hasattr(crop_vol_size, 'item') else crop_vol_size; "
+                f'np.savetxt(\'{output_file + ".txt"}\', [trainApix, crop_vol_size])"'
             )
         return fullProgram
 

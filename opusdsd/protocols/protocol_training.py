@@ -242,17 +242,12 @@ class OpusDsdProtTrain(ProtProcessParticles, ProtFlexBase):
                       label='Validation image fraction',
                       help='Fraction of images held for validation.')
 
-        form.addParam('downFrac', params.FloatParam, default=1.0,
-                      condition='abInitio==%s' % True,
-                      label='Downsampling fraction', expertLevel=params.LEVEL_ADVANCED,
-                      help='Downsample to this fraction of original size. You can set it according to '
-                           'resolution of consensus model and the templateres you set')
-
         form.addParam('templateres', params.IntParam, default=144,
                       condition='abInitio==%s' % True,
                       label='Output size',
-                      help='Define the output size of 3d volume of the convolutional network. You may keep it '
-                           'around > D*downFrac, which is larger than the input size.')
+                      help='The output size of the reconstructed 3D volume in the intermediate steps of the convolutional network.'
+                           ' You may keep it around > D*downFrac, as it would mean a increase on the resolution. Problem: '
+                           'the higher this value is, more memory will be consumed.')
 
         form.addHidden(params.GPU_LIST, params.StringParam, default='0',
                        label="Choose GPU IDs",
@@ -369,7 +364,7 @@ class OpusDsdProtTrain(ProtProcessParticles, ProtFlexBase):
 
         return summary
 
-    def _validateBase(self):
+    def _validate(self):
         errors = []
 
         if self._getBoxSize() % 2 != 0:
@@ -378,8 +373,8 @@ class OpusDsdProtTrain(ProtProcessParticles, ProtFlexBase):
         if not self._inputHasAlign():
             errors.append("Input particles have no alignment!")
 
-        if self._getBoxSize() < 128:
-            errors.append("OPUS-DSD requires a box size > 128 x 128 pixels.")
+        if self.templateres.get() % 16 != 0:
+            errors.append("Template resolution (templateres) must be divisible by 16)!")
 
         return errors
 
@@ -499,12 +494,12 @@ class OpusDsdProtTrain(ProtProcessParticles, ProtFlexBase):
 
         if run.multiBody:
             if run.downFrac.get() * (self._getBoxSize() - 1) >= 128:
-                args += '--downfrac %f ' % run.downFrac
+                args += '--downfrac 1.0 '
             else:
-                raise ValueError("Error while asserting, please change the downsampling factor accordingly, as "
-                                 "the product between the factor and the original size of the particles are not above 128")
+                raise ValueError("Error while asserting, please change the box size factor accordingly, as particles"
+                                 "must remain in 128x128 in multibody dynamics. ")
         else:
-            args += '--downfrac %f ' % run.downFrac
+            args += '--downfrac 1.0 '
 
         args += '--templateres %d ' % run.templateres
         args += '--bfactor %f ' % run.bfactor
