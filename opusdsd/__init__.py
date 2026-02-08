@@ -30,17 +30,18 @@
 import os
 import pwem
 import pyworkflow.utils as pwutils
-from pyworkflow import Config
+from pyworkflow import Config, SPA
 
 from .constants import *
 
-__version__ = '3.3.0'
+__version__ = '3.4.0'
 _references = ['Luo2023']
 _logo = "cryodrgn_logo.png"
 
 class Plugin(pwem.Plugin):
     _url = "https://github.com/scipion-em/scipion-em-opusdsd"
     _supportedVersions = VERSIONS
+    _processingField = [SPA]
 
     @classmethod
     def _defineVariables(cls):
