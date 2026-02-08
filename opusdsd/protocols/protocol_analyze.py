@@ -34,7 +34,7 @@ from pyworkflow.constants import PROD
 from pwem.protocols import ProtProcessParticles, ProtFlexBase
 import pwem.objects as emobj
 from ..constants import *
-from ..utils import *
+from opusdsd.utils.utils import *
 
 class OpusDsdProtAnalyze(ProtProcessParticles,ProtFlexBase):
     """
@@ -139,12 +139,6 @@ class OpusDsdProtAnalyze(ProtProcessParticles,ProtFlexBase):
         self.weightsNew = self._getWorkDir() + f'/weights_new.{self.initEpoch}.pkl'
         self.config = self._getExtra() + '/config.pkl'
         self.runJob(Plugin.getTorchLoadProgram(self._getWorkDir(), self.weights, self.weightsNew, 'weights'), '')
-
-        #config = self._getWorkDir() + '/config'
-        #self.runJob(Plugin.getTorchLoadProgram(self._getWorkDir(), self.config, config, 'config'), '')
-        #trainApix = np.loadtxt(config + '.txt')[0]
-        #crop_vol_size = np.loadtxt(config + '.txt')[1]
-        #self.newApix = checkCropSize(self._getBoxSize(), self.downFrac, crop_vol_size, trainApix)
 
     def runAnalysisStep(self):
         """ Call OPUS-DSD with the appropriate parameters to analyze """

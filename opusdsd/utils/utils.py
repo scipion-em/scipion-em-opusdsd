@@ -27,6 +27,7 @@
 # *
 # **************************************************************************
 import os
+import opusdsd
 from pyworkflow.utils.process import runJob
 from opusdsd import Plugin
 import numpy as np
@@ -73,3 +74,13 @@ def checkCropSize(boxSize, downFrac, crop_vol_size, trainApix):
 
     if not found: print(f'WARNING: No exact match found for size {crop_vol_size}. Using original.')
     return best_apix
+
+def getAnnotateSpaceArguments(particles, gpu_id=None):
+    server_functions_path = os.path.join(os.path.dirname(opusdsd.__file__), "utils", "annotate_space_server.py")
+    args = (f"--config {particles.getFlexInfo().getAttr('_opusdsdConfig')} --load {particles.getFlexInfo().getAttr('-opusdsdWeightsNew')}"
+            f"--server_functions_path {server_functions_path} --env_name {opusdsd.Plugin.getOpusDsdEnvActivation().split(' ')[-1]}")
+
+    if gpu_id is not None:
+        args += f" --gpu_id {gpu_id}"
+
+    return args
