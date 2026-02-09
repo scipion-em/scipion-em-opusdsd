@@ -79,7 +79,7 @@ def checkCropSize(boxSize, downFrac, crop_vol_size, trainApix):
 def getAnnotateSpaceArguments(particles, gpu_id=None):
     server_functions_path = os.path.join(os.path.dirname(opusdsd.__file__), "utils", "annotate_space_server.py")
     args = (f"--config {particles.getFlexInfo().getAttr(CONFIG)} --load {particles.getFlexInfo().getAttr(WEIGHTSNEW)}"
-            f"--server_functions_path {server_functions_path} --env_name {opusdsd.Plugin.getOpusDsdEnvActivation().split(' ')[-1]}")
+            f" --server_functions_path {server_functions_path} --env_name {opusdsd.Plugin.getOpusDsdEnvActivation().split(' ')[-1]}")
 
     if gpu_id is not None:
         args += f" --gpu_id {gpu_id}"

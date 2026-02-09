@@ -110,6 +110,5 @@ class HeterogeneityProgramInterface:
 
     def decode_state_from_latent(self, latent: np.array) -> None:
         latent = torch.from_numpy(latent.astype(np.float32)).to(self.device)
-        filename = self.outPath.replace('.mrc', '')
         for idx, zz in enumerate(latent):
-            self.model.save_mrc(filename.format(idx + 1), enc=zz, Apix=self.Apix)
+            self.model.save_mrc(self.path_template.format(idx + 1).replace('.mrc', ''), enc=zz, Apix=self.Apix)
