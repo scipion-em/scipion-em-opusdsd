@@ -103,7 +103,7 @@ class Plugin(pwem.Plugin):
 
         if all(int(major) == 7 for major in CUDA_CAPABILITIES):
             installCmds += [
-                'pip install numpy==1.21.0 &&',
+                'pip install numpy==1.23.0 &&',
                 'pip install seaborn==0.13.2 &&'
             ]
         else:
