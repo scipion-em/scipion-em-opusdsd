@@ -169,7 +169,7 @@ class OpusDsdProtAnalyze(ProtProcessParticles,ProtFlexBase):
             outSet.append(outParticle)
 
         if os.path.exists(self.weightsNew):
-            outSet.getFlexInfo().setAttr(WEIGHTS, pwobj.String(self.weightsNew))
+            outSet.getFlexInfo().setAttr(WEIGHTSNEW, pwobj.String(self.weightsNew))
         else:
             outSet.getFlexInfo().setAttr(WEIGHTS, pwobj.String(self.weights))
 
