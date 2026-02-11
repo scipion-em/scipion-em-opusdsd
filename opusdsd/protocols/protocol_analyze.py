@@ -264,8 +264,6 @@ class OpusDsdProtAnalyze(ProtProcessParticles,ProtFlexBase):
         args += '--encode-mode grad '
         args += '--dec-layers %d ' % self._getOpusDSDTrainingProtocol().pLayers
         args += '--dec-dim %d ' % self._getOpusDSDTrainingProtocol().pDim
-        args += '--pe-type vanilla '
-        args += '--template-type conv '
         args += '--activation relu'
 
         return args

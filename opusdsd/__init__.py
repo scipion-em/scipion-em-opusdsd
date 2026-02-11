@@ -87,36 +87,22 @@ class Plugin(pwem.Plugin):
     def addOpusDsdPackage(cls, env, version, default=False):
         ENV_NAME = getOpusDsdEnvName(version)
         FLAG = f"opusdsd_{version}_installed"
+        FILE = 'envtorch2.yml'
 
-        if all(int(major) == 7 for major in CUDA_CAPABILITIES):
-            FILE = 'environment.yml'
-        else:
-            FILE = 'environmentcu11torch11.yml'
-
-        # try to get CONDA activation command
         installCmds = [
             cls.getCondaActivationCmd(),
             f'conda env create --name {ENV_NAME} --file {FILE} --yes &&',
             f'conda activate {ENV_NAME} &&',
             'pip install -e . &&',
+            'pip install numpy==1.26.4 &&',
+            'pip install scikit-learn==1.5.2 &&'
         ]
 
-        if all(int(major) == 7 for major in CUDA_CAPABILITIES):
-            installCmds += [
-                'pip install numpy==1.23.0 &&',
-                'pip install seaborn==0.13.2 &&'
-            ]
-        else:
-            installCmds += [
-                'pip install pillow==10.4.0 &&'
-            ]
-
         installCmds += [
-            f'touch {FLAG}'  # Flag installation finished
+            f'touch {FLAG}'
         ]
 
         envPath = os.environ.get('PATH', "")
-        # keep path since conda likely in there
         installEnvVars = {'PATH': envPath} if envPath else None
 
         branch = "main"
@@ -166,7 +152,7 @@ class Plugin(pwem.Plugin):
         )
         if option == 'pkl':
             fullProgram += (
-                f'data = torch.load(\'{file}\'); '
+                f'data = torch.load(\'{file}\', weights_only=False); '
                 'npdata = {k: v.numpy() if hasattr(v, \'numpy\') else v for k, v in data.items()}; '
                 f'np.savez(\'{output_file + ".npz"}\', **npdata); '
                 f'np.savetxt(\'{output_file + ".txt"}\', npdata[list(npdata.keys())[0]])"'

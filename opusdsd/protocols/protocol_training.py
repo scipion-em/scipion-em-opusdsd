@@ -373,6 +373,9 @@ class OpusDsdProtTrain(ProtProcessParticles, ProtFlexBase):
         if not self._inputHasAlign():
             errors.append("Input particles have no alignment!")
 
+        if self.numEpochs.get() < 2:
+            errors.append("Number of epochs must be at least 2!")
+
         if self.templateres.get() % 16 != 0:
             errors.append("Template resolution (templateres) must be divisible by 16)!")
 
@@ -511,8 +514,10 @@ class OpusDsdProtTrain(ProtProcessParticles, ProtFlexBase):
         args += '--encode-mode grad '
         args += '--dec-layers %d ' % run.pLayers
         args += '--dec-dim %d ' % run.pDim
-        args += '--pe-type vanilla '
-        args += '--template-type conv '
+
+        if not run.multiBody:
+            args += '--pe-type vanilla '
+
         args += '--activation relu'
 
         if self.abInitio:
