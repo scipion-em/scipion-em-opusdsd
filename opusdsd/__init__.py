@@ -95,10 +95,7 @@ class Plugin(pwem.Plugin):
             f'conda activate {ENV_NAME} &&',
             'pip install -e . &&',
             'pip install numpy==1.26.4 &&',
-            'pip install scikit-learn==1.5.2 &&'
-        ]
-
-        installCmds += [
+            'pip install scikit-learn==1.5.2 &&',
             f'touch {FLAG}'
         ]
 
