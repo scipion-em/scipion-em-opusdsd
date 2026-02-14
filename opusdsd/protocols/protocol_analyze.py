@@ -123,21 +123,16 @@ class OpusDsdProtAnalyze(ProtProcessParticles,ProtFlexBase):
         shutil.copytree(self._getFileName('workTrainDir'), self._getExtra())
         shutil.move(self._getExtra() + '/run.log', self._getWorkDir() + '/run.log')
 
-        self._insertFunctionStep(self.convertInputStep)
+        self.initEpoch = os.path.basename(self._getWorkDir()).split('.')[1]
+        self.zDim = self._getOpusDSDTrainingProtocol().zDim
+        self.weights = self._getWorkDir() + f'/weights.{self.initEpoch}.pkl'
+        self.config = self._getExtra() + '/config.pkl'
+
         self._insertFunctionStep(self.runAnalysisStep)
         self._insertFunctionStep(self.runEvalVolStep)
         self._insertFunctionStep(self.createOutputStep)
 
     # --------------------------- STEPS functions -----------------------------
-
-    def convertInputStep(self):
-        self.initEpoch = os.path.basename(self._getWorkDir()).split('.')[1]
-        self.zDim = self._getOpusDSDTrainingProtocol().zDim
-        self.inputMask = self._getFileName('input_mask')
-
-        self.weights = self._getWorkDir() + f'/weights.{self.initEpoch}.pkl'
-        self.weightsNew = self._getWorkDir() + f'/weights_new.{self.initEpoch}.pkl'
-        self.config = self._getExtra() + '/config.pkl'
 
     def runAnalysisStep(self):
         """ Call OPUS-DSD with the appropriate parameters to analyze """
