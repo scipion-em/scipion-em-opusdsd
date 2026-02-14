@@ -138,7 +138,6 @@ class OpusDsdProtAnalyze(ProtProcessParticles,ProtFlexBase):
         self.weights = self._getWorkDir() + f'/weights.{self.initEpoch}.pkl'
         self.weightsNew = self._getWorkDir() + f'/weights_new.{self.initEpoch}.pkl'
         self.config = self._getExtra() + '/config.pkl'
-        self.runJob(Plugin.getTorchLoadProgram(self._getWorkDir(), self.weights, self.weightsNew, 'weights'), '')
 
     def runAnalysisStep(self):
         """ Call OPUS-DSD with the appropriate parameters to analyze """
@@ -168,11 +167,7 @@ class OpusDsdProtAnalyze(ProtProcessParticles,ProtFlexBase):
             outParticle.setZFlex(list(zValue))
             outSet.append(outParticle)
 
-        if os.path.exists(self.weightsNew):
-            outSet.getFlexInfo().setAttr(WEIGHTSNEW, pwobj.String(self.weightsNew))
-        else:
-            outSet.getFlexInfo().setAttr(WEIGHTS, pwobj.String(self.weights))
-
+        outSet.getFlexInfo().setAttr(WEIGHTS, pwobj.String(self.weights))
         outSet.getFlexInfo().setAttr(CONFIG, pwobj.String(self.config))
         outSet.getFlexInfo().setAttr(ZDIM, pwobj.Integer(self.zDim))
 
@@ -246,7 +241,7 @@ class OpusDsdProtAnalyze(ProtProcessParticles,ProtFlexBase):
         if os.path.exists(self.weightsNew):
             args = '--load %s ' % self.weightsNew
         else:
-            args = '--load $s ' % self.weights
+            args = '--load %s ' % self.weights
 
         args += '--config %s ' % self.config
 

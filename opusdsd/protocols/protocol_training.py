@@ -339,22 +339,13 @@ class OpusDsdProtTrain(ProtProcessParticles, ProtFlexBase):
 
     def runTrainingStep(self):
         # Training step for Opus-DSD
-        run = self if self.abInitio else self._getOpusDSDTrainingProtocol()
         args = self._getTrainingArgs()
 
         if self.abInitio:
-            if not run.multiBody:
-                self._runProgram('train_cv', args)
-            else:
-                self._runProgram('train_multi', args)
-
+            self._runProgram('train_multi', args)
             self._outputRegroup(self.numEpochs.get() - 2)
         else:
-            if not run.multiBody:
-                self._runProgram('train_cv', args[0])
-            else:
-                self._runProgram('train_multi', args[0])
-
+            self._runProgram('train_multi', args[0])
             self._outputRegroup(args[1])
 
     # --------------------------- INFO functions ------------------------------
@@ -514,10 +505,6 @@ class OpusDsdProtTrain(ProtProcessParticles, ProtFlexBase):
         args += '--encode-mode grad '
         args += '--dec-layers %d ' % run.pLayers
         args += '--dec-dim %d ' % run.pDim
-
-        if not run.multiBody:
-            args += '--pe-type vanilla '
-
         args += '--activation relu'
 
         if self.abInitio:
