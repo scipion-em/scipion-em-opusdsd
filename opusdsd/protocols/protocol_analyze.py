@@ -233,11 +233,7 @@ class OpusDsdProtAnalyze(ProtProcessParticles,ProtFlexBase):
         elif self.sampleMode.get() == KMEANS:
             zFile = self._out(self.initEpoch, self._getFileName('z_valuesN_km', ksamples=self.ksamples.get()))
 
-        if os.path.exists(self.weightsNew):
-            args = '--load %s ' % self.weightsNew
-        else:
-            args = '--load %s ' % self.weights
-
+        args = '--load %s ' % self.weights
         args += '--config %s ' % self.config
 
         if self.sampleMode.get() == KMEANS:
