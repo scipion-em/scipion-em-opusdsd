@@ -25,7 +25,7 @@ Issues = "https://github.com/scipion-em/scipion-em-opusdsd/issues"
 "opusdsd" = ["protocols.conf", "cryodrgn_logo.png"]
 
 [project.entry-points."pyworkflow.plugin"]
-opusdsd = "opusdsd"
+opusdsd = "opusDSD"
 
 [tool.setuptools.dynamic]
 version = {attr = "opusdsd.__version__"}
