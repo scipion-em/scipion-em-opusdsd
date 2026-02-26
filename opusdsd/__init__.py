@@ -30,7 +30,7 @@
 import os
 import pwem
 import pyworkflow.utils as pwutils
-from pyworkflow import Config
+from pyworkflow import Config, SPA
 
 from .constants import *
 
@@ -41,6 +41,7 @@ _logo = "cryodrgn_logo.png"
 class Plugin(pwem.Plugin):
     _url = "https://github.com/scipion-em/scipion-em-opusdsd"
     _supportedVersions = VERSIONS
+    _processingField = [SPA]
 
     @classmethod
     def _defineVariables(cls):
