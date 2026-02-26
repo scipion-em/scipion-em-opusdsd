@@ -174,12 +174,6 @@ class Plugin(pwem.Plugin):
         return fullProgram
 
     @classmethod
-    def getXmippProgram(cls, program):
-        """ Import Xmipp Program. """
-        fullProgram = 'cd %s && cd bin/ && ./%s' % (cls.getVar(XMIPP_HOME), program)
-        return fullProgram
-
-    @classmethod
     def getActiveVersion(cls, *args):
         """ Return the env name that is currently active. """
         envVar = cls.getVar(OPUSDSD_ENV_ACTIVATION)

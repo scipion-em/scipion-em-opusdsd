@@ -265,21 +265,18 @@ class OpusDsdProtAnalyze(ProtProcessParticles,ProtFlexBase):
     def _getExtra(self, *paths):
         return os.path.abspath(self._getExtraPath(*paths))
 
-    def _runProgram(self, program, args, fromXmipp=False):
+    def _runProgram(self, program, args):
         gpus = ','.join(str(i) for i in self.getGpuList())
         threads = f'{self.numberOfThreads.get()}'
-        if not fromXmipp:
-            env = pwutils.Environ()
-            env.update({
-                'OMP_NUM_THREADS': threads,
-                'MKL_NUM_THREADS': threads,
-                'OPENBLAS_NUM_THREADS': threads,
-                'NUMEXPR_NUM_THREADS': threads,
-                'NUMBA_NUM_THREADS': threads
-            })
-            self.runJob(Plugin.getProgram(program, gpus, fromCryodrgn=True), args, env=env)
-        else:
-            self.runJob(Plugin.getXmippProgram(program), args)
+        env = pwutils.Environ()
+        env.update({
+            'OMP_NUM_THREADS': threads,
+            'MKL_NUM_THREADS': threads,
+            'OPENBLAS_NUM_THREADS': threads,
+            'NUMEXPR_NUM_THREADS': threads,
+            'NUMBA_NUM_THREADS': threads
+        })
+        self.runJob(Plugin.getProgram(program, gpus, fromCryodrgn=True), args, env=env)
 
     def _getWorkDir(self):
         workDir = [dir for dir in os.listdir(self._getExtra()) if dir.startswith('Results')][0]

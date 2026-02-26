@@ -83,36 +83,11 @@ class OpusDsdProtTrain(ProtProcessParticles, ProtFlexBase):
                       help="If preprocess data is required, set to yes, if training data is required, set to no.")
 
         group = form.addGroup('Ab-Initio', condition='abInitio==%s' % True)
-        group.addParam('useMask', params.BooleanParam, condition='abInitio==%s' % True, default=False,
-                      label='Importing mask?',
-                      help='If mask can be imported, set to yes, if not, set to no for mask creation from'
-                           'a mandatory imported volume.')
-
-        group.addParam('inputVolume', params.PointerParam, pointerClass='Volume', condition='useMask==%s' % False,
-                      allowsNull=True, label='Input Volume',
-                      help="The suggestion is to use a solvent mask created from this alrady provided volume. "
-                           "Then, the program will focus on fitting the contents inside the created mask "
-                           "(more specifically, the 2D projection of a 3D mask). Since the majority part of the "
-                           "image doesn't contain electron density, using the original image size is wasteful. "
-                           "By specifying a mask, our program will automatically determine a suitable crop rate "
-                           "to keep only the region with densities.")
-
-        group.addParam('threshold', params.FloatParam, default=0.01, condition='useMask==%s' % False,
-                      label='Initial binarisation threshold',
-                      expertLevel=params.LEVEL_ADVANCED,
-                      help="This threshold is used to make an initial binary "
-                           "mask from the average of the two unfiltered "
-                           "half-reconstructions. If you don't know what "
-                           "value to use, display one of the unfiltered "
-                           "half-maps in a 3D surface rendering viewer and "
-                           "find the lowest threshold that gives no noise "
-                           "peaks outside the reconstruction.")
-
         group.addParam('inputMask', params.PointerParam, pointerClass='VolumeMask',
-                      condition='useMask==%s' % True, allowsNull=True,
+                      condition='abInitio==%s' % True, allowsNull=True,
                       label="Input Mask",
                       help="The suggestion is to use an already given solvent mask. "
-                           "If it isn't given, it must be calculated from the volume given, which will be necessary. "
+                           "If it isn't given, it must be calculated from a volume separately, as it's necessary. "
                            "The program will focus on fitting the contents inside the mask (more specifically, "
                            "the 2D projection of a 3D mask). Since the majority part of the image doesn't contain "
                            "electron density, using the original image size is wasteful. By specifying a mask, "
@@ -295,19 +270,8 @@ class OpusDsdProtTrain(ProtProcessParticles, ProtFlexBase):
         # Create links to binary files and write the .mrc file
         if self.abInitio:
             maskFilename = self._getFileName('input_mask')
-            if self.useMask:
-                inMask = self._getInputMask().getFileName()
-                shutil.copy(inMask, maskFilename)
-            else:
-                volFilename = self._getFileName('input_volume')
-                inVol = self._getInputVolume().getFileName()
-                shutil.copy(inVol, volFilename)
-
-                args = '--i %s ' % volFilename
-                args += '--o %s ' % maskFilename
-                args += '--substitute binarize %f ' % self.threshold
-
-                self._runProgram('xmipp_transform_threshold', args, fromXmipp=True)
+            inMask = self._getInputMask().getFileName()
+            shutil.copy(inMask, maskFilename)
 
         # In case it's a multi rigid-body training, we create a starfile with all the mask parameters
         if run.multiBody:
@@ -536,21 +500,18 @@ class OpusDsdProtTrain(ProtProcessParticles, ProtFlexBase):
         workDir = [dir for dir in os.listdir(self._getExtra()) if dir.startswith('Results')][0]
         return self._getExtra(workDir)
 
-    def _runProgram(self, program, args, fromXmipp=False):
+    def _runProgram(self, program, args):
         gpus = ','.join(str(i) for i in self.getGpuList())
         threads = f'{self.numberOfThreads.get()}'
-        if not fromXmipp:
-            env = pwutils.Environ()
-            env.update({
-                'OMP_NUM_THREADS': threads,
-                'MKL_NUM_THREADS': threads,
-                'OPENBLAS_NUM_THREADS': threads,
-                'NUMEXPR_NUM_THREADS': threads,
-                'NUMBA_NUM_THREADS': threads
-            })
-            self.runJob(Plugin.getProgram(program, gpus, fromCryodrgn=True), args, env=env)
-        else:
-            self.runJob(Plugin.getXmippProgram(program), args)
+        env = pwutils.Environ()
+        env.update({
+            'OMP_NUM_THREADS': threads,
+            'MKL_NUM_THREADS': threads,
+            'OPENBLAS_NUM_THREADS': threads,
+            'NUMEXPR_NUM_THREADS': threads,
+            'NUMBA_NUM_THREADS': threads
+        })
+        self.runJob(Plugin.getProgram(program, gpus, fromCryodrgn=True), args, env=env)
 
     def _inputHasAlign(self):
         return self._getInputParticles().hasAlignmentProj()
