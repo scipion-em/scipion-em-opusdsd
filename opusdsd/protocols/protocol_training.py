@@ -79,11 +79,10 @@ class OpusDsdProtTrain(ProtProcessParticles, ProtFlexBase):
                       label='Input Particles')
 
         form.addParam('abInitio', params.BooleanParam, default=True,
-                      label="Ab-Initio condition",
+                      label="Initial Training",
                       help="If preprocess data is required, set to yes, if training data is required, set to no.")
 
-        group = form.addGroup('Ab-Initio', condition='abInitio==%s' % True)
-        group.addParam('inputMask', params.PointerParam, pointerClass='VolumeMask',
+        form.addParam('inputMask', params.PointerParam, pointerClass='VolumeMask',
                       condition='abInitio==%s' % True, allowsNull=True,
                       label="Input Mask",
                       help="The suggestion is to use an already given solvent mask. "
@@ -130,7 +129,7 @@ class OpusDsdProtTrain(ProtProcessParticles, ProtFlexBase):
                            'Even for non-ab-initio cases, the number of epochs should be left the same as previous '
                            'trainings.')
 
-        form.addParam('zDim', params.IntParam, default=12,
+        form.addParam('zDim', params.IntParam, default=8,
                       validators=[params.Positive],
                       condition='abInitio==%s' % True,
                       label='Dimension of latent variable',
