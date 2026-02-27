@@ -62,8 +62,9 @@ v1.1.0
 Protocols
 ----------
 
-* training CV/Multi
-* analyze/eval_vol (volume generation)
+* training Multi (improved algorithm with multi-gpu condition)
+* analyze (which contains both analyze and volume generation algorithms)
+* anchorage into annotate space algorithm for output and latent space visualizations
 
 References
 -----------
