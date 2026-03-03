@@ -483,9 +483,6 @@ class OpusDsdProtTrain(ProtProcessParticles, ProtFlexBase):
     def _getInputParticles(self):
         return self.inputParticles.get()
 
-    def _getInputVolume(self):
-        return self.inputVolume.get()
-
     def _getInputMask(self):
         return self.inputMask.get()
 
