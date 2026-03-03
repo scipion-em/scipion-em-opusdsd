@@ -48,9 +48,10 @@ It will be left the latest version of Opus-DSD as default. In case some other ve
 
 Verifying
 ---------
-To check the installation, simply run the following Scipion test:
+To check the installation, first you need to have Xmipp installed, and then simply run the following:
 
-``scipion test opusdsd.tests.test_protocols_opusdsd.TestOpusDsd``
+1. ``scipion3 testdata --download FlexHub_Tutorials``
+2. ``scipion test opusdsd.tests.test_opusdsd.TestOpusDsd``
 
 Supported versions
 ------------------
