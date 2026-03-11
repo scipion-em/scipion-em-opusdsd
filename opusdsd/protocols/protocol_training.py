@@ -176,12 +176,13 @@ class OpusDsdProtTrain(ProtProcessParticles, ProtFlexBase):
                       expertLevel=params.LEVEL_ADVANCED,
                       help='Weight decay in Adam optimizer.')
 
-        form.addParam('betaControl', params.FloatParam, default=1.,
+        form.addParam('betaControl', params.FloatParam, default=0.5,
                       condition='abInitio==%s' % True,
                       label='Beta restraint strength for KL target',
                       expertLevel=params.LEVEL_ADVANCED,
                       help='Beta parameter that controls the strength of the beta-VAE prior. The larger '
-                           'the argument, the stronger the strength of the standard Gaussian restraint.')
+                           'the argument, the stronger the strength of the standard Gaussian restraint. The scale of '
+                           'the beta-control should be proportional to the SNR of the dataset.')
 
         form.addParam('lamb', params.FloatParam, default=0.5,
                       condition='abInitio==%s' % True,
@@ -191,7 +192,7 @@ class OpusDsdProtTrain(ProtProcessParticles, ProtFlexBase):
                            'the encoder network that encourages the encoding of structural '
                            'information for images in the same projection class. Possible values between [0.1, 3.].')
 
-        form.addParam('bfactor', params.FloatParam, default=3.75,
+        form.addParam('bfactor', params.FloatParam, default=4.0,
                       condition='abInitio==%s' % True,
                       label='B-factor for reconstruction',
                       expertLevel=params.LEVEL_ADVANCED,
