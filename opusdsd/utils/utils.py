@@ -83,10 +83,10 @@ def getAnnotateSpaceArguments(particles, gpu_id=None):
     weights = particles.getFlexInfo().getAttr(WEIGHTS)
 
     if f"projects{os.path.sep}" in particles.getFlexInfo().getAttr(CONFIG):
-        config = particles.getFlexInfo().getAttr(CONFIG).split(f"projects{os.path.sep}")[-1]
+        config = os.path.join("Runs", particles.getFlexInfo().getAttr(CONFIG).split(f"Runs{os.path.sep}")[-1])
 
     if f"projects{os.path.sep}" in particles.getFlexInfo().getAttr(WEIGHTS):
-        weights = particles.getFlexInfo().getAttr(WEIGHTS).split(f"projects{os.path.sep}")[-1]
+        weights = os.path.join("Runs", particles.getFlexInfo().getAttr(WEIGHTS).split(f"Runs{os.path.sep}")[-1])
 
     args = (f"--config {config} --load {weights}"
             f" --server_functions_path {server_functions_path} --env_name {opusdsd.Plugin.getOpusDsdEnvActivation().split(' ')[-1]}")
