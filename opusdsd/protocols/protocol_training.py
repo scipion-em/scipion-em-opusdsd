@@ -43,7 +43,9 @@ class OpusDsdProtTrain(ProtProcessParticles, ProtFlexBase):
     """
     Protocol to train OPUS-DSD neural network.
     """
-    """
+
+    class OpusDsdProtTrain(ProtProcessParticles, ProtFlexBase):
+        """
         Trains the OPUS-DSD neural network for cryo-EM continuous heterogeneity analysis.
         The protocol is designed to preprocess particle datasets, prepare pose and CTF
         metadata, and execute neural network training workflows for both single-body and
