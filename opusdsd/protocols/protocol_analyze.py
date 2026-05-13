@@ -40,6 +40,139 @@ class OpusDsdProtAnalyze(ProtProcessParticles,ProtFlexBase):
     """
     Protocol to analyze results from OPUS-DSD neural network.
     """
+
+    class OpusDsdProtAnalyze(ProtProcessParticles, ProtFlexBase):
+        """
+        Analyze OPUS-DSD latent-space results and generate representative
+        conformational volumes from a previously trained neural network.
+
+        AI Generated:
+
+        OPUS-DSD Analyze (OpusDsdProtAnalyze) — User Manual
+            Overview
+
+            The OPUS-DSD Analyze protocol is designed to explore and interpret
+            the latent space learned during a previous OPUS-DSD training step.
+            Its main objective is to transform the abstract latent variables
+            produced by the neural network into biologically interpretable
+            3D density maps representing structural variability.
+
+            In practical cryo-EM workflows, this protocol allows researchers
+            to investigate continuous conformational heterogeneity, identify
+            dominant structural motions, and generate representative volumes
+            corresponding to different regions of the latent space.
+
+            Inputs and General Workflow
+
+            The protocol requires a previously trained OPUS-DSD network together
+            with the associated particle set. During execution, the protocol
+            loads the trained latent representation, retrieves particle z-values,
+            and performs a latent-space analysis to generate representative
+            conformational states.
+
+            The workflow begins by copying the training results into the current
+            analysis workspace, including neural-network weights, configuration
+            files, and latent-space information. The protocol then launches the
+            OPUS-DSD analysis routines and reconstructs volumes corresponding
+            to representative latent coordinates.
+
+            Latent Space Analysis Strategies
+
+            The protocol supports two complementary approaches for latent-space
+            exploration: Principal Component Analysis (PCA) and K-means clustering.
+
+            The PCA strategy identifies the dominant directions of variability
+            within the latent space and generates trajectories along selected
+            principal components. This approach is particularly useful for
+            studying continuous conformational motions, such as domain opening,
+            bending, or rotational rearrangements. The generated volumes represent
+            progressive structural transitions along the selected component.
+
+            The K-means strategy partitions the latent space into discrete regions
+            and generates representative volumes from cluster centers. This method
+            is especially useful when the dataset contains several preferred
+            conformational states or partially discrete structural populations.
+            The resulting volumes provide a compact overview of the structural
+            landscape learned by the neural network.
+
+            Volume Generation and Interpretation
+
+            After the latent-space analysis is completed, the protocol reconstructs
+            3D density maps associated with the selected latent coordinates.
+            Generated volumes are automatically linked with their corresponding
+            z-values, allowing direct interpretation of each reconstruction
+            within the learned conformational landscape.
+
+            In PCA mode, the protocol generates a trajectory of volumes along
+            the selected principal component. This is particularly valuable for
+            visualizing continuous molecular flexibility and identifying dominant
+            collective motions.
+
+            In K-means mode, the generated maps correspond to representative
+            conformations sampled from cluster centers. These volumes are often
+            easier to interpret when studying datasets containing multiple
+            stable or semi-stable structural states.
+
+            Particle Latent Coordinates
+
+            In addition to volume generation, the protocol creates an output
+            particle set enriched with latent-space coordinates. Each particle
+            receives its associated z-vector, allowing downstream flexible-analysis
+            workflows and facilitating further structural interpretation.
+
+            These latent coordinates can later be used for visualization,
+            clustering, trajectory analysis, or integration with additional
+            heterogeneity-analysis protocols.
+
+            Validation and Constraints
+
+            The protocol validates consistency between the latent-space dimension
+            and the selected sampling parameters. Both PCA and K-means sampling
+            values must be divisible by the latent dimension to ensure correct
+            generation of representative volumes.
+
+            The protocol also verifies the existence of reconstructed volumes
+            before creating the final outputs, preventing incomplete or invalid
+            analyses from propagating into subsequent workflows.
+
+            Computational Considerations
+
+            The analysis step relies on GPU acceleration and automatically
+            configures CPU-thread usage for numerical libraries such as OpenMP,
+            MKL, OpenBLAS, NumExpr, and Numba. This configuration improves
+            performance during latent-space analysis and volume reconstruction.
+
+            Depending on the selected sampling strategy and latent dimension,
+            the number of generated volumes may increase significantly. PCA
+            trajectories usually produce smooth conformational transitions,
+            whereas K-means clustering generates representative states covering
+            broader regions of the conformational landscape.
+
+            Practical Recommendations
+
+            PCA analysis is generally recommended when the biological system
+            exhibits continuous motions or progressive structural rearrangements.
+            It is particularly effective for studying flexible assemblies,
+            domain movements, or gradual conformational transitions.
+
+            K-means analysis is often preferable when the dataset contains
+            several structurally distinct populations or when a reduced set
+            of representative conformations is needed for rapid inspection.
+
+            In routine cryo-EM workflows, users commonly begin with K-means
+            clustering to identify major structural states and later refine
+            the interpretation using PCA trajectories focused on specific
+            regions of conformational variability.
+
+            Final Perspective
+
+            The OPUS-DSD Analyze protocol transforms the latent representation
+            learned by deep neural networks into biologically interpretable
+            structural information. By connecting particle latent coordinates
+            with reconstructed density maps, the protocol enables detailed
+            exploration of conformational landscapes and provides a powerful
+            framework for studying continuous heterogeneity in cryo-EM datasets.
+        """
     _label = 'opusdsd analyze'
     _devStatus = PROD
 
