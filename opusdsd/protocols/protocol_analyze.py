@@ -40,9 +40,7 @@ class OpusDsdProtAnalyze(ProtProcessParticles,ProtFlexBase):
     """
     Protocol to analyze results from OPUS-DSD neural network.
     """
-
-    class OpusDsdProtAnalyze(ProtProcessParticles, ProtFlexBase):
-        """
+    """
         Analyze OPUS-DSD latent-space results and generate representative
         conformational volumes from a previously trained neural network.
 
